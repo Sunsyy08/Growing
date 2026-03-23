@@ -1,1 +1,1 @@
-# This Project is Plant Care Appllication
+# This Project is Plant Care Application
