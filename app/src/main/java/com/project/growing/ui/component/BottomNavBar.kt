@@ -22,10 +22,10 @@ enum class BottomNavTab(
     val icon         : ImageVector,
     val selectedIcon : ImageVector,
 ) {
-    HOME   ("홈",   Icons.Outlined.Home,      Icons.Rounded.Home),
-    RECORD ("기록", Icons.Outlined.BarChart,   Icons.Rounded.BarChart),
-    CHAT   ("상담", Icons.Outlined.ChatBubble, Icons.Rounded.ChatBubble),
-    MY     ("마이", Icons.Outlined.Person,      Icons.Rounded.Person),
+    HOME   ("홈",   Icons.Outlined.Home,         Icons.Rounded.Home),
+    RECORD ("기록", Icons.Outlined.Schedule,      Icons.Rounded.Schedule),
+    CHAT   ("상담", Icons.Outlined.ChatBubbleOutline, Icons.Rounded.ChatBubble),
+    MY     ("마이", Icons.Outlined.PersonOutline,  Icons.Rounded.Person),
 }
 
 @Composable
@@ -39,7 +39,6 @@ fun BottomNavBar(
             .fillMaxWidth()
             .background(White)
     ) {
-        // 상단 구분선
         HorizontalDivider(
             color     = Color(0xFFEAEAEA),
             thickness = 0.8.dp,
@@ -85,7 +84,7 @@ fun BottomNavItem(
                 imageVector        = if (isSelected) tab.selectedIcon else tab.icon,
                 contentDescription = tab.label,
                 tint               = if (isSelected) activeColor else inactiveColor,
-                modifier           = Modifier.size(22.dp),
+                modifier           = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(

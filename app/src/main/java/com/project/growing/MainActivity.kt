@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
+import com.project.growing.ui.screen.AiAnalysisScreen
 import com.project.growing.ui.screen.HomeScreen
 import com.project.growing.ui.theme.GrowingTheme
 
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
                             BottomNavTab.MY     -> { /* TODO */ }
                         }
                     }
+                    AiAnalysisScreen()
                 }
             }
         }
