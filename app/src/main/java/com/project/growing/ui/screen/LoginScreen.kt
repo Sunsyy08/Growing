@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.airbnb.lottie.compose.*
+import com.project.growing.R
 import com.project.growing.ui.theme.*
 import com.project.growing.viewmodel.AuthViewModel
 
@@ -56,6 +57,22 @@ fun LoginScreen(
     LaunchedEffect(state.loginSuccess) {
         if (state.loginSuccess) onLoginSuccess()
     }
+
+    // ── Lottie 설정 ───────────────────────────────────────────
+    val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+
+    val composition by if (isPreview) {
+        remember { mutableStateOf(null) }
+    } else {
+        rememberLottieComposition(
+            LottieCompositionSpec.RawRes(R.raw.login_animation)
+        )
+    }
+
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations  = LottieConstants.IterateForever,
+    )
 
     GrowingTheme {
         Box(
@@ -128,72 +145,20 @@ fun LoginScreen(
                     .padding(horizontal = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(modifier = Modifier.height(88.dp))
+                Spacer(modifier = Modifier.height(60.dp))
 
-                // 앱 아이콘
-                Box(
-                    modifier = Modifier
-                        .size(78.dp)
-                        .shadow(
-                            elevation    = 24.dp,
-                            shape        = RoundedCornerShape(24.dp),
-                            ambientColor = GreenMid.copy(alpha = 0.5f),
-                            spotColor    = GreenPrimary.copy(alpha = 0.5f),
-                        )
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(Color(0xFF34C77B), Color(0xFF1A7A4A))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    // 유리 하이라이트
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(39.dp)
-                            .align(Alignment.TopCenter)
-                            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0x33FFFFFF),
-                                        Color(0x00FFFFFF),
-                                    )
-                                )
-                            )
+                // ── 기존 아이콘 박스 → Lottie 애니메이션 ────────
+                if (!isPreview) {
+                    LottieAnimation(
+                        composition = composition,
+                        progress    = { progress },
+                        modifier    = Modifier.size(160.dp),
                     )
-                    // 테두리 링
-                    Box(
-                        modifier = Modifier
-                            .size(78.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .border(
-                                width = 1.dp,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0x88FFFFFF),
-                                        Color(0x11FFFFFF),
-                                    )
-                                ),
-                                shape = RoundedCornerShape(24.dp),
-                            )
-                    )
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(
-                            imageVector        = Icons.Rounded.Spa,
-                            contentDescription = null,
-                            tint               = White,
-                            modifier           = Modifier.size(34.dp),
-                        )
-                    }
+                } else {
+                    Spacer(modifier = Modifier.size(160.dp))
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
                     text       = "안녕하세요 👋",
@@ -302,7 +267,7 @@ fun LoginScreen(
     }
 }
 
-// ── 공용 컴포넌트 ────────────────────────────────────────────
+// ── 공용 컴포넌트 ─────────────────────────────────────────────
 
 @Composable
 fun GlassCard(
@@ -393,9 +358,9 @@ fun GlassTextField(
             keyboardActions      = keyboardActions,
             interactionSource    = interactionSource,
             textStyle = TextStyle(
-                fontSize   = 15.sp,
-                color      = TextPrimary,
-                fontWeight = FontWeight.Normal,
+                fontSize      = 15.sp,
+                color         = TextPrimary,
+                fontWeight    = FontWeight.Normal,
                 letterSpacing = (-0.1).sp,
             ),
             cursorBrush = SolidColor(GreenMid),
@@ -413,17 +378,16 @@ fun GlassTextField(
                     Icon(
                         imageVector        = icon,
                         contentDescription = null,
-                        tint               = if (isFocused) GreenMid
-                        else TextHint,
+                        tint               = if (isFocused) GreenMid else TextHint,
                         modifier           = Modifier.size(17.dp),
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Box(modifier = Modifier.weight(1f)) {
                         if (value.isEmpty()) {
                             Text(
-                                text  = placeholder,
+                                text     = placeholder,
                                 fontSize = 15.sp,
-                                color = TextHint,
+                                color    = TextHint,
                             )
                         }
                         innerTextField()
@@ -472,7 +436,6 @@ fun AppleButton(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        // 유리 하이라이트
         Box(
             modifier = Modifier
                 .fillMaxWidth()

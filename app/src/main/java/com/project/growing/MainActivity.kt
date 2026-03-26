@@ -20,6 +20,7 @@ import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
 import com.project.growing.ui.screen.AiAnalysisScreen
 import com.project.growing.ui.screen.HomeScreen
+import com.project.growing.ui.screen.LoginScreen
 import com.project.growing.ui.theme.GrowingTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,7 +47,8 @@ class MainActivity : ComponentActivity() {
                             BottomNavTab.MY     -> { /* TODO */ }
                         }
                     }
-                    AiAnalysisScreen()
+//                    AiAnalysisScreen()
+                    LoginScreen()
                 }
             }
         }

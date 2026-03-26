@@ -1,7 +1,6 @@
 package com.project.growing.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -16,7 +15,6 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.airbnb.lottie.compose.*
+import com.project.growing.R
 import com.project.growing.ui.theme.*
 import com.project.growing.viewmodel.AuthViewModel
 
@@ -53,6 +53,15 @@ fun SignUpScreen(
     LaunchedEffect(state.signUpSuccess) {
         if (state.signUpSuccess) onSignUpSuccess()
     }
+
+    // ── Lottie 설정 ───────────────────────────────────────────
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(R.raw.signup_animation)
+    )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations  = LottieConstants.IterateForever,
+    )
 
     GrowingTheme {
         Box(
@@ -111,7 +120,7 @@ fun SignUpScreen(
             ) {
                 Spacer(modifier = Modifier.height(56.dp))
 
-                // 뒤로가기
+                // ── 뒤로가기 ──────────────────────────────────
                 Row(
                     modifier          = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -138,66 +147,16 @@ fun SignUpScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // 아이콘
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .shadow(
-                            elevation    = 20.dp,
-                            shape        = RoundedCornerShape(22.dp),
-                            ambientColor = GreenMid.copy(alpha = 0.5f),
-                            spotColor    = GreenPrimary.copy(alpha = 0.5f),
-                        )
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(Color(0xFF4CD988), Color(0xFF1A7A4A))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    // 유리 하이라이트
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(36.dp)
-                            .align(Alignment.TopCenter)
-                            .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0x33FFFFFF),
-                                        Color(0x00FFFFFF),
-                                    )
-                                )
-                            )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .border(
-                                width = 1.dp,
-                                brush = Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0x88FFFFFF),
-                                        Color(0x11FFFFFF),
-                                    )
-                                ),
-                                shape = RoundedCornerShape(22.dp),
-                            )
-                    )
-                    Icon(
-                        imageVector        = Icons.Rounded.Spa,
-                        contentDescription = null,
-                        tint               = White,
-                        modifier           = Modifier.size(30.dp),
-                    )
-                }
+                // ── 기존 아이콘 박스 → Lottie 애니메이션 ────────
+                LottieAnimation(
+                    composition = composition,
+                    progress    = { progress },
+                    modifier    = Modifier.size(160.dp),
+                )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text          = "계정 만들기",
@@ -215,7 +174,7 @@ fun SignUpScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // 유리 카드
+                // ── 유리 카드 ──────────────────────────────────
                 GlassCard {
                     Column(modifier = Modifier.padding(24.dp)) {
 
