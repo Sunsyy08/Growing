@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,7 +39,7 @@ data class ActivityRecord(
     val emoji      : String,
     val plantName  : String,
     val dateTime   : String,
-    val actionIcon : String,   // "water" | "camera"
+    val actionIcon : String,
     val action     : String,
     val memo       : String,
     val scoreDelta : Int?,
@@ -50,6 +49,7 @@ data class ActivityRecord(
 
 val chartPoints: List<ChartPoint> = listOf(
     ChartPoint("3/10", 85),
+    ChartPoint("3/11", 87),
     ChartPoint("3/12", 88),
     ChartPoint("3/13", 90),
     ChartPoint("3/14", 92),
@@ -108,7 +108,6 @@ val activityRecords: List<ActivityRecord> = listOf(
 fun RecordScreen() {
     GrowingTheme {
         var selectedTab by remember { mutableStateOf(BottomNavTab.RECORD) }
-
         val GreenPrimary = Color(0xFF43A967)
 
         val drawProgress = remember { Animatable(0f) }
@@ -157,12 +156,7 @@ fun RecordScreen() {
                                     )
                                 )
                             )
-                            .padding(
-                                start  = 20.dp,
-                                end    = 20.dp,
-                                top    = 52.dp,
-                                bottom = 24.dp,
-                            )
+                            .padding(start = 20.dp, end = 20.dp, top = 52.dp, bottom = 24.dp)
                     ) {
                         Column {
                             Text(
@@ -185,7 +179,7 @@ fun RecordScreen() {
                 // ── 건강 점수 차트 카드 ────────────────────────
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    RecordElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    RecordElevatedCard(modifier = Modifier.padding(horizontal = 20.dp)) {
                         Row(
                             modifier              = Modifier.fillMaxWidth(),
                             verticalAlignment     = Alignment.CenterVertically,
@@ -220,7 +214,7 @@ fun RecordScreen() {
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         LineChart(
                             points        = chartPoints,
@@ -229,14 +223,14 @@ fun RecordScreen() {
                             onPointTapped = { idx: Int ->
                                 selectedPointIdx = if (selectedPointIdx == idx) null else idx
                             },
-                            modifier      = Modifier
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .height(160.dp),
+                                .height(180.dp),
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.8.dp)
                         Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.8.dp)
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         Row(
                             modifier              = Modifier.fillMaxWidth(),
@@ -267,166 +261,182 @@ fun RecordScreen() {
                     }
                 }
 
-                // ── 활동 기록 (하나의 카드 안에 리스트) ──────────
+                // ── 활동 기록 타이틀 ───────────────────────────
                 item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    RecordElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(
-                            text       = "활동 기록",
-                            fontSize   = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text       = "활동 기록",
+                        fontSize   = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                        modifier   = Modifier.padding(horizontal = 20.dp),
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
+                // ── 활동 기록 타임라인 ─────────────────────────
+                item {
+                    RecordElevatedCard(modifier = Modifier.padding(horizontal = 20.dp)) {
                         activityRecords.forEachIndexed { idx, record: ActivityRecord ->
-                            ActivityRecordRow(
+                            TimelineActivityRow(
                                 record       = record,
+                                isLast       = idx == activityRecords.lastIndex,
                                 greenPrimary = GreenPrimary,
                             )
-                            if (idx < activityRecords.lastIndex) {
-                                HorizontalDivider(
-                                    modifier  = Modifier.padding(
-                                        vertical = 12.dp,
-                                        horizontal = 0.dp,
-                                    ),
-                                    color     = Color(0xFFF2F2F2),
-                                    thickness = 0.8.dp,
-                                )
-                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
     }
 }
 
-// ── 활동 기록 행 (카드 내부 아이템) ──────────────────────────
+// ── 타임라인 행 ───────────────────────────────────────────────
 
 @Composable
-fun ActivityRecordRow(
+fun TimelineActivityRow(
     record       : ActivityRecord,
+    isLast       : Boolean,
     greenPrimary : Color,
-    modifier     : Modifier = Modifier,
 ) {
-    Row(
-        modifier          = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // 좌측 액션 아이콘 (작은 원)
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(
-                    if (record.actionIcon == "water") Color(0xFFE3F2FD)
-                    else Color(0xFFF0F0F0)
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector        = if (record.actionIcon == "water")
-                    Icons.Rounded.WaterDrop
-                else
-                    Icons.Rounded.CameraAlt,
-                contentDescription = null,
-                tint               = if (record.actionIcon == "water")
-                    Color(0xFF5BB8F5)
-                else
-                    Color(0xFF9E9E9E),
-                modifier           = Modifier.size(15.dp),
-            )
-        }
+    // 아이콘 원 크기
+    val iconCircleSize = 32.dp
 
-        Spacer(modifier = Modifier.width(10.dp))
+    Row(modifier = Modifier.fillMaxWidth()) {
 
-        // 식물 썸네일 (정사각형)
-        Box(
-            modifier = Modifier
-                .size(68.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFE8F5EF)),
-            contentAlignment = Alignment.Center,
+        // ── 좌측: 아이콘 원 + 수직선 ─────────────────────────
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier            = Modifier.width(iconCircleSize),
         ) {
-            Text(text = record.emoji, fontSize = 28.sp)
-            // TODO: 실제 이미지로 교체 (AsyncImage 등)
+            // 아이콘 원
+            Box(
+                modifier = Modifier
+                    .size(iconCircleSize)
+                    .clip(CircleShape)
+                    .background(
+                        if (record.actionIcon == "water") Color(0xFFE3F2FD)
+                        else Color(0xFFF0F0F0)
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector        = if (record.actionIcon == "water")
+                        Icons.Rounded.WaterDrop else Icons.Rounded.CameraAlt,
+                    contentDescription = null,
+                    tint               = if (record.actionIcon == "water")
+                        Color(0xFF5BB8F5) else Color(0xFF9E9E9E),
+                    modifier           = Modifier.size(14.dp),
+                )
+            }
+
+            // 연결선 (마지막 제외)
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(1.5.dp)
+                        .weight(1f)
+                        .background(Color(0xFFDDDDDD))
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // 텍스트 정보
-        Column(modifier = Modifier.weight(1f)) {
-            // 식물 이름 + 점수 변화
-            Row(
-                modifier          = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+        // ── 우측: 썸네일 + 텍스트 ────────────────────────────
+        Row(
+            modifier          = Modifier
+                .weight(1f)
+                .padding(bottom = if (isLast) 0.dp else 18.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            // 식물 썸네일
+            Box(
+                modifier = Modifier
+                    .size(70.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFDCEFE3)),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text       = record.plantName,
-                    fontSize   = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color      = TextPrimary,
-                )
-                if (record.scoreDelta != null) {
-                    val isPos   = record.scoreDelta > 0
-                    val txColor = if (isPos) greenPrimary else Color(0xFFE53935)
-                    val prefix  = if (isPos) "+" else ""
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(
-                                if (isPos) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                            )
-                            .padding(horizontal = 7.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector        = if (isPos) Icons.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
-                            contentDescription = null,
-                            tint               = txColor,
-                            modifier           = Modifier.size(11.dp),
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text       = "$prefix${record.scoreDelta}점",
-                            fontSize   = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = txColor,
-                        )
-                    }
-                }
+                Text(text = record.emoji, fontSize = 28.sp)
+                // TODO: 실제 이미지로 교체
             }
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            // 날짜
-            Text(
-                text     = record.dateTime,
-                fontSize = 11.sp,
-                color    = TextSecondary,
-            )
+            // 텍스트 정보
+            Column(modifier = Modifier.weight(1f)) {
+                // 식물명 + 점수 뱃지
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text       = record.plantName,
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
+                    if (record.scoreDelta != null) {
+                        val isPos   = record.scoreDelta > 0
+                        val txColor = if (isPos) greenPrimary else Color(0xFFE53935)
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    if (isPos) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                )
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector        = if (isPos) Icons.Rounded.TrendingUp
+                                else Icons.Rounded.TrendingDown,
+                                contentDescription = null,
+                                tint               = txColor,
+                                modifier           = Modifier.size(11.dp),
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text       = "${if (isPos) "+" else ""}${record.scoreDelta}점",
+                                fontSize   = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = txColor,
+                            )
+                        }
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
-            // 액션
-            Text(
-                text       = record.action,
-                fontSize   = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color      = TextPrimary,
-            )
+                // 날짜
+                Text(
+                    text     = record.dateTime,
+                    fontSize = 11.sp,
+                    color    = TextSecondary,
+                )
 
-            Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(5.dp))
 
-            // 메모
-            Text(
-                text     = record.memo,
-                fontSize = 12.sp,
-                color    = TextSecondary,
-            )
+                // 액션
+                Text(
+                    text       = record.action,
+                    fontSize   = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = TextPrimary,
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // 메모
+                Text(
+                    text     = record.memo,
+                    fontSize = 12.sp,
+                    color    = TextSecondary,
+                )
+            }
         }
     }
 }
@@ -441,9 +451,9 @@ fun LineChart(
     onPointTapped : (Int) -> Unit,
     modifier      : Modifier = Modifier,
 ) {
-    val paddingLeft   = 36f
+    val paddingLeft   = 38f
     val paddingRight  = 16f
-    val paddingTop    = 20f
+    val paddingTop    = 72f   // 툴팁 공간 충분히
     val paddingBottom = 28f
 
     val minScore = (points.minOf { it.score } - 5).toFloat()
@@ -480,13 +490,18 @@ fun LineChart(
         }
     ) {
         canvasSize = size
-        val chartW = size.width - paddingLeft - paddingRight
         val chartH = size.height - paddingTop - paddingBottom
 
+        // Y 가이드라인
         for (step in listOf(80, 85, 90, 95, 100)) {
             if (step >= minScore && step <= maxScore) {
                 val y = paddingTop + chartH * (1f - (step - minScore) / (maxScore - minScore))
-                drawLine(Color(0xFFEEEEEE), Offset(paddingLeft, y), Offset(size.width - paddingRight, y), 1f)
+                drawLine(
+                    color       = Color(0xFFEEEEEE),
+                    start       = Offset(paddingLeft, y),
+                    end         = Offset(size.width - paddingRight, y),
+                    strokeWidth = 1f,
+                )
                 drawContext.canvas.nativeCanvas.drawText(
                     "$step", paddingLeft - 8f, y + 4f,
                     android.graphics.Paint().apply {
@@ -520,8 +535,8 @@ fun LineChart(
             val lastPt: Offset = if (full < total && partial > 0f) {
                 val from = getOffset(full, size)
                 val to   = getOffset(full + 1, size)
-                val lx   = from.x + (to.x - from.x) * partial
-                val ly   = from.y + (to.y - from.y) * partial
+                val lx = from.x + (to.x - from.x) * partial
+                val ly = from.y + (to.y - from.y) * partial
                 fillPath.lineTo(lx, ly)
                 linePath.lineTo(lx, ly)
                 Offset(lx, ly)
@@ -537,7 +552,7 @@ fun LineChart(
                 path  = fillPath,
                 brush = Brush.verticalGradient(
                     listOf(
-                        Color(0xFF43A967).copy(alpha = 0.25f),
+                        Color(0xFF43A967).copy(alpha = 0.22f),
                         Color(0xFF43A967).copy(alpha = 0f),
                     ),
                     startY = paddingTop,
@@ -550,44 +565,103 @@ fun LineChart(
                 style = Stroke(3f, cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
 
+            // 포인트 점
             val visCount = full + 1 + if (full < total && partial > 0.8f) 1 else 0
             for (i in 0 until visCount.coerceAtMost(points.size)) {
                 val pt  = getOffset(i, size)
                 val sel = selectedIdx == i
-                drawCircle(Color.White,       if (sel) 9f else 6f,   pt)
-                drawCircle(Color(0xFF43A967), if (sel) 5f else 3.5f, pt)
+                if (sel) {
+                    drawCircle(Color(0xFF43A967).copy(alpha = 0.15f), 18f, pt)
+                }
+                drawCircle(Color.White,       if (sel) 10f  else 5.5f, pt)
+                drawCircle(Color(0xFF43A967), if (sel) 6f   else 3f,   pt)
             }
 
+            // ── 툴팁 (크고 넉넉하게) ──────────────────────────
             if (selectedIdx != null && tooltipAlpha > 0f && selectedIdx < points.size) {
                 val pt    = getOffset(selectedIdx, size)
-                val label = "${points[selectedIdx].date}  ${points[selectedIdx].score}점"
-                val tp    = android.graphics.Paint().apply {
-                    textSize       = 28f
-                    color          = android.graphics.Color.WHITE
-                    textAlign      = android.graphics.Paint.Align.CENTER
+                val date  = points[selectedIdx].date
+                val score = points[selectedIdx].score
+
+                // 텍스트 페인트
+                val datePaint = android.graphics.Paint().apply {
+                    textSize       = 38f
+                    color          = android.graphics.Color.argb(
+                        (tooltipAlpha * 255).toInt(), 30, 130, 60
+                    )
                     isFakeBoldText = true
+                    textAlign      = android.graphics.Paint.Align.LEFT
                 }
-                val tw = tp.measureText(label)
-                val bw = tw + 24f; val bh = 40f
-                var bl = pt.x - bw / 2f; var bt = pt.y - bh - 14f
-                if (bl < paddingLeft) bl = paddingLeft
-                if (bl + bw > size.width - paddingRight) bl = size.width - paddingRight - bw
-                if (bt < 0f) bt = pt.y + 14f
+                val scorePaint = android.graphics.Paint().apply {
+                    textSize  = 32f
+                    color     = android.graphics.Color.argb(
+                        (tooltipAlpha * 210).toInt(), 80, 80, 80
+                    )
+                    textAlign = android.graphics.Paint.Align.LEFT
+                }
+
+                val line1 = date
+                val line2 = "score : $score"
+
+                // 박스 크기: 텍스트 너비 + 좌우 패딩 60f
+                val contentW = maxOf(datePaint.measureText(line1), scorePaint.measureText(line2))
+                val boxW     = contentW + 60f
+                val boxH     = 96f
+                val radius   = 18f
+
+                // 위치 결정
+                var boxL = pt.x - boxW / 2f
+                var boxT = pt.y - boxH - 22f
+                if (boxL < paddingLeft) boxL = paddingLeft
+                if (boxL + boxW > size.width - paddingRight) boxL = size.width - paddingRight - boxW
+                if (boxT < 2f) boxT = pt.y + 22f
+
+                // 그림자
                 drawContext.canvas.nativeCanvas.drawRoundRect(
-                    bl, bt, bl + bw, bt + bh, 12f, 12f,
+                    boxL + 2f, boxT + 4f, boxL + boxW + 2f, boxT + boxH + 4f,
+                    radius, radius,
                     android.graphics.Paint().apply {
-                        color = android.graphics.Color.argb(
-                            (tooltipAlpha * 220).toInt(), 34, 85, 50
+                        color      = android.graphics.Color.argb(
+                            (tooltipAlpha * 30).toInt(), 0, 0, 0
+                        )
+                        maskFilter = android.graphics.BlurMaskFilter(
+                            12f, android.graphics.BlurMaskFilter.Blur.NORMAL
                         )
                     }
                 )
-                drawContext.canvas.nativeCanvas.drawText(
-                    label, bl + bw / 2f, bt + bh / 2f + 9f,
-                    tp.apply { alpha = (tooltipAlpha * 255).toInt() }
+
+                // 흰 박스
+                drawContext.canvas.nativeCanvas.drawRoundRect(
+                    boxL, boxT, boxL + boxW, boxT + boxH,
+                    radius, radius,
+                    android.graphics.Paint().apply {
+                        color = android.graphics.Color.argb(
+                            (tooltipAlpha * 252).toInt(), 255, 255, 255
+                        )
+                    }
                 )
+
+                // 테두리
+                drawContext.canvas.nativeCanvas.drawRoundRect(
+                    boxL, boxT, boxL + boxW, boxT + boxH,
+                    radius, radius,
+                    android.graphics.Paint().apply {
+                        color       = android.graphics.Color.argb(
+                            (tooltipAlpha * 35).toInt(), 0, 0, 0
+                        )
+                        style       = android.graphics.Paint.Style.STROKE
+                        strokeWidth = 1.5f
+                    }
+                )
+
+                // 텍스트 (위아래 여백 균등하게)
+                val textX = boxL + 24f
+                drawContext.canvas.nativeCanvas.drawText(line1, textX, boxT + 36f, datePaint)
+                drawContext.canvas.nativeCanvas.drawText(line2, textX, boxT + 72f, scorePaint)
             }
 
-            for (i in listOf(0, 2, 4, 6, 7)) {
+            // X축 날짜
+            for (i in listOf(0, 2, 4, 6, 8)) {
                 if (i < points.size) {
                     val pt = getOffset(i, size)
                     drawContext.canvas.nativeCanvas.drawText(
@@ -640,10 +714,10 @@ fun RecordElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation    = 8.dp,
+                elevation    = 6.dp,
                 shape        = RoundedCornerShape(20.dp),
-                ambientColor = Color(0x14000000),
-                spotColor    = Color(0x20000000),
+                ambientColor = Color(0x12000000),
+                spotColor    = Color(0x18000000),
             )
             .clip(RoundedCornerShape(20.dp))
             .background(
