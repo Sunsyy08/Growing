@@ -1,5 +1,6 @@
 package com.project.growing.ui.screen
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,10 +36,10 @@ enum class PlantStatus(
     val iconBg   : Color,
     val iconTint : Color,
 ) {
-    GOOD   ("좋음", Color(0xFF2E7D32), Color(0xFFE8F5E9), Icons.Rounded.Eco,       Color(0xFF43A967), Color.White),
-    CAUTION("주의", Color(0xFFF57F17), Color(0xFFFFF8E1), Icons.Rounded.Warning,    Color(0xFFFFB300), Color.White),
-    NORMAL ("중간", Color(0xFF1565C0), Color(0xFFE3F2FD), Icons.Rounded.WaterDrop,  Color(0xFF42A5F5), Color.White),
-    DANGER ("위험", Color(0xFFC62828), Color(0xFFFFEBEE), Icons.Rounded.Dangerous,  Color(0xFFEF5350), Color.White),
+    GOOD   ("좋음", Color(0xFF2E7D32), Color(0xFFE8F5E9), Icons.Rounded.Eco,      Color(0xFF43A967), Color.White),
+    CAUTION("주의", Color(0xFFF57F17), Color(0xFFFFF8E1), Icons.Rounded.Warning,   Color(0xFFFFB300), Color.White),
+    NORMAL ("중간", Color(0xFF1565C0), Color(0xFFE3F2FD), Icons.Rounded.WaterDrop, Color(0xFF42A5F5), Color.White),
+    DANGER ("위험", Color(0xFFC62828), Color(0xFFFFEBEE), Icons.Rounded.Dangerous, Color(0xFFEF5350), Color.White),
 }
 
 data class PlantUiModel(
@@ -59,7 +61,6 @@ val samplePlants = listOf(
         status      = PlantStatus.GOOD,
         memo        = "건강한 상태입니다 🌟",
     ),
-    // TODO: 백엔드 연결 후 실제 데이터로 교체
 )
 
 @Composable
@@ -67,6 +68,43 @@ fun HomeScreen(
     onAddPlant : () -> Unit = {},
 ) {
     GrowingTheme {
+
+        // ── 화면 진입 트리거 ───────────────────────────────
+        var entered by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { entered = true }
+
+        // ── 헤더 슬라이드 다운 + 페이드인 ─────────────────
+        val headerTranslateY by animateFloatAsState(
+            targetValue   = if (entered) 0f else -120f,
+            animationSpec = tween(
+                durationMillis = 550,
+                easing         = EaseOutCubic,
+            ),
+            label = "header_ty",
+        )
+        val headerAlpha by animateFloatAsState(
+            targetValue   = if (entered) 1f else 0f,
+            animationSpec = tween(durationMillis = 450, easing = EaseOutCubic),
+            label         = "header_alpha",
+        )
+
+        // ── 콘텐츠 페이드인 (헤더보다 살짝 늦게) ──────────
+        val contentAlpha by animateFloatAsState(
+            targetValue   = if (entered) 1f else 0f,
+            animationSpec = tween(durationMillis = 500, delayMillis = 200, easing = EaseOutCubic),
+            label         = "content_alpha",
+        )
+
+        // ── FAB 스케일 (튀어오르기) ────────────────────────
+        val fabScale by animateFloatAsState(
+            targetValue   = if (entered) 1f else 0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness    = Spring.StiffnessMedium,
+            ),
+            label = "fab_scale",
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -74,10 +112,14 @@ fun HomeScreen(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
-                // ── 상단 헤더 (높이 축소) ──────────────────
+                // ── 상단 헤더 (슬라이드 다운) ──────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .graphicsLayer {
+                            translationY = headerTranslateY
+                            alpha        = headerAlpha
+                        }
                         .shadow(
                             elevation    = 10.dp,
                             shape        = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
@@ -97,8 +139,8 @@ fun HomeScreen(
                         .padding(
                             start  = 24.dp,
                             end    = 24.dp,
-                            top    = 48.dp,       // 54 → 48
-                            bottom = 20.dp,       // 28 → 20
+                            top    = 48.dp,
+                            bottom = 20.dp,
                         )
                 ) {
                     Column {
@@ -118,9 +160,11 @@ fun HomeScreen(
                     }
                 }
 
-                // ── 스크롤 영역 ────────────────────────────
+                // ── 스크롤 영역 (페이드인) ─────────────────
                 LazyColumn(
-                    modifier       = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer { alpha = contentAlpha },
                     contentPadding = PaddingValues(top = 18.dp, bottom = 24.dp),
                 ) {
                     item {
@@ -155,7 +199,7 @@ fun HomeScreen(
                 }
             }
 
-            // ── FAB ────────────────────────────────────────
+            // ── FAB (튀어오르기 + 아래로 이동) ────────────
             FloatingActionButton(
                 onClick        = onAddPlant,
                 containerColor = Color(0xFF43A967),
@@ -163,8 +207,9 @@ fun HomeScreen(
                 shape          = CircleShape,
                 modifier       = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 80.dp)
+                    .padding(end = 22.dp, bottom = 16.dp)   // 80 → 96 (더 아래로)
                     .size(52.dp)
+                    .graphicsLayer { scaleX = fabScale; scaleY = fabScale }
                     .shadow(
                         elevation    = 14.dp,
                         shape        = CircleShape,
@@ -182,11 +227,27 @@ fun HomeScreen(
     }
 }
 
+// ── 식물 카드 ─────────────────────────────────────────────────
+
 @Composable
 fun PlantCard(
     plant    : PlantUiModel,
     modifier : Modifier = Modifier,
 ) {
+    // ── 건강 점수 바 애니메이션 ────────────────────────────
+    var startAnim by remember { mutableStateOf(false) }
+    LaunchedEffect(plant.id) { startAnim = true }
+
+    val animatedProgress by animateFloatAsState(
+        targetValue   = if (startAnim) plant.healthScore / 100f else 0f,
+        animationSpec = tween(
+            durationMillis = 1000,
+            delayMillis    = 300,
+            easing         = EaseOutCubic,
+        ),
+        label = "health_bar_${plant.id}",
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -207,13 +268,12 @@ fun PlantCard(
         ) {
             // ── 이미지 + 상태 아이콘 ───────────────────────
             Box(modifier = Modifier.size(84.dp)) {
-                // 이미지 (그림자 최소화)
                 Box(
                     modifier = Modifier
                         .size(80.dp)
                         .align(Alignment.BottomStart)
                         .shadow(
-                            elevation    = 2.dp,        // 6 → 2
+                            elevation    = 2.dp,
                             shape        = RoundedCornerShape(14.dp),
                             ambientColor = Color(0x0A000000),
                         )
@@ -221,11 +281,9 @@ fun PlantCard(
                         .background(Color(0xFFDFF2E6)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // TODO: AsyncImage 로 교체
                     Text(text = "🪴", fontSize = 32.sp)
                 }
 
-                // 상태 아이콘 뱃지
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -281,7 +339,7 @@ fun PlantCard(
                     modifier              = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(text = "건강 점수",  fontSize = 12.sp, color = TextSecondary)
+                    Text(text = "건강 점수", fontSize = 12.sp, color = TextSecondary)
                     Text(
                         text       = "${plant.healthScore}%",
                         fontSize   = 12.sp,
@@ -292,6 +350,7 @@ fun PlantCard(
 
                 Spacer(modifier = Modifier.height(5.dp))
 
+                // ── 건강 점수 바 (애니메이션) ────────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -301,7 +360,7 @@ fun PlantCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(plant.healthScore / 100f)
+                            .fillMaxWidth(animatedProgress)   // ← 애니메이션 적용
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(50))
                             .background(
@@ -328,7 +387,8 @@ fun PlantCard(
                     Text(text = plant.nextWater, fontSize = 12.sp, color = TextSecondary)
                 }
 
-                // 메모
+                Spacer(modifier = Modifier.height(6.dp))
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -337,9 +397,9 @@ fun PlantCard(
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                 ) {
                     Text(
-                        text     = plant.memo,
-                        fontSize = 12.sp,
-                        color    = plant.status.color,
+                        text       = plant.memo,
+                        fontSize   = 12.sp,
+                        color      = plant.status.color,
                         fontWeight = FontWeight.Medium,
                     )
                 }
@@ -347,6 +407,8 @@ fun PlantCard(
         }
     }
 }
+
+// ── Preview ────────────────────────────────────────────────────
 
 @Preview(showBackground = true, showSystemUi = true, name = "Home with BottomBar")
 @Composable
