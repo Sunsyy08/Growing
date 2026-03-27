@@ -47,8 +47,6 @@ class MainActivity : ComponentActivity() {
                             BottomNavTab.MY     -> { /* TODO */ }
                         }
                     }
-//                    AiAnalysisScreen()
-                    LoginScreen()
                 }
             }
         }
