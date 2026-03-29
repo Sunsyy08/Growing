@@ -3,6 +3,7 @@ package com.project.growing.ui.screen
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -66,6 +67,7 @@ val samplePlants = listOf(
 @Composable
 fun HomeScreen(
     onAddPlant : () -> Unit = {},
+    onPlantClick : (String) -> Unit   = {},
 ) {
     GrowingTheme {
 
@@ -193,6 +195,7 @@ fun HomeScreen(
                     items(samplePlants) { plant ->
                         PlantCard(
                             plant    = plant,
+                            onClick  = { onPlantClick(plant.id) },
                             modifier = Modifier.padding(horizontal = 22.dp, vertical = 7.dp),
                         )
                     }
@@ -232,6 +235,7 @@ fun HomeScreen(
 @Composable
 fun PlantCard(
     plant    : PlantUiModel,
+    onClick  : () -> Unit   = {},
     modifier : Modifier = Modifier,
 ) {
     // ── 건강 점수 바 애니메이션 ────────────────────────────
@@ -259,6 +263,7 @@ fun PlantCard(
             )
             .clip(RoundedCornerShape(20.dp))
             .background(White)
+            .clickable { onClick() }
     ) {
         Row(
             modifier          = Modifier

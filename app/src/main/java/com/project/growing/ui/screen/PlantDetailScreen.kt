@@ -1,5 +1,10 @@
 package com.project.growing.ui.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -28,7 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.project.growing.ui.theme.*
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 // ── 샘플 데이터 ───────────────────────────────────────────────
 
@@ -70,26 +81,73 @@ fun PlantDetailScreen(
     onAskExpert  : () -> Unit         = {},
 ) {
     GrowingTheme {
+        val context = LocalContext.current
+
+        // ── 촬영된 사진 URI 상태 ──────────────────────────
+        var capturedUri by remember { mutableStateOf<Uri?>(null) }
+
+        // ── 임시 파일 URI 생성 함수 ───────────────────────
+        fun createTempImageUri(): Uri {
+            val timestamp  = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val imageFile  = File(context.cacheDir, "plant_update_$timestamp.jpg")
+            return FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                imageFile,
+            )
+        }
+
+        var tempUri by remember { mutableStateOf<Uri?>(null) }
+
+        // ── 카메라 실행 런처 ──────────────────────────────
+        val cameraLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicture(),
+        ) { success ->
+            if (success && tempUri != null) {
+                capturedUri = tempUri
+                // TODO: 백엔드 연결 시 capturedUri를 업로드 API로 전달
+            }
+        }
+
+        // ── 카메라 권한 런처 ──────────────────────────────
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                val uri = createTempImageUri()
+                tempUri = uri
+                cameraLauncher.launch(uri)
+            }
+        }
+
+        // ── 카메라 실행 함수 ──────────────────────────────
+        fun launchCamera() {
+            val permission = Manifest.permission.CAMERA
+            if (ContextCompat.checkSelfPermission(context, permission)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                val uri = createTempImageUri()
+                tempUri = uri
+                cameraLauncher.launch(uri)
+            } else {
+                permissionLauncher.launch(permission)
+            }
+        }
 
         // ── 화면 진입 트리거 ───────────────────────────────
         var entered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { entered = true }
 
-        // ── 건강 점수 링 애니메이션 ────────────────────────
         val ringProgress by animateFloatAsState(
             targetValue   = if (entered) plant.healthScore / 100f else 0f,
             animationSpec = tween(durationMillis = 1400, easing = EaseOutCubic),
             label         = "ring_progress",
         )
-
-        // ── 점수 숫자 카운트업 애니메이션 ─────────────────
         val displayScore by animateIntAsState(
             targetValue   = if (entered) plant.healthScore else 0,
             animationSpec = tween(durationMillis = 1400, easing = EaseOutCubic),
             label         = "score_count",
         )
-
-        // ── 물주기 카드 슬라이드 + 페이드 ─────────────────
         val waterCardAlpha by animateFloatAsState(
             targetValue   = if (entered) 1f else 0f,
             animationSpec = tween(durationMillis = 600, delayMillis = 300, easing = EaseOutCubic),
@@ -100,8 +158,6 @@ fun PlantDetailScreen(
             animationSpec = tween(durationMillis = 600, delayMillis = 300, easing = EaseOutCubic),
             label         = "water_slide",
         )
-
-        // ── 햇빛 카드 슬라이드 + 페이드 (약간 딜레이) ─────
         val sunCardAlpha by animateFloatAsState(
             targetValue   = if (entered) 1f else 0f,
             animationSpec = tween(durationMillis = 600, delayMillis = 480, easing = EaseOutCubic),
@@ -113,7 +169,6 @@ fun PlantDetailScreen(
             label         = "sun_slide",
         )
 
-        // ── 카드 맥동 (물방울 아이콘) ─────────────────────
         val infiniteTransition = rememberInfiniteTransition(label = "pulse")
         val waterIconScale by infiniteTransition.animateFloat(
             initialValue  = 1f,
@@ -259,10 +314,7 @@ fun PlantDetailScreen(
                             fontWeight = FontWeight.Bold,
                             color      = TextPrimary,
                         )
-
                         Spacer(modifier = Modifier.height(20.dp))
-
-                        // ── 원형 프로그레스 (애니메이션) ─────
                         Box(
                             modifier         = Modifier
                                 .size(140.dp)
@@ -284,17 +336,10 @@ fun PlantDetailScreen(
                                     color         = Color(0xFF43A967),
                                     letterSpacing = (-1).sp,
                                 )
-                                Text(
-                                    text     = "점",
-                                    fontSize = 13.sp,
-                                    color    = TextSecondary,
-                                )
+                                Text(text = "점", fontSize = 13.sp, color = TextSecondary)
                             }
                         }
-
                         Spacer(modifier = Modifier.height(20.dp))
-
-                        // AI 상태 분석 박스
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -322,9 +367,7 @@ fun PlantDetailScreen(
                                 )
                             }
                         }
-
                         Spacer(modifier = Modifier.height(14.dp))
-
                         Row(
                             modifier              = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -343,14 +386,13 @@ fun PlantDetailScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ── 물주기 / 햇빛 카드 (입장 + 맥동 애니메이션) ─
+                // ── 물주기 / 햇빛 카드 ────────────────────
                 Row(
                     modifier = Modifier
                         .padding(horizontal = 20.dp)
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    // ── 물주기 카드 ───────────────────────────
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -358,64 +400,32 @@ fun PlantDetailScreen(
                                 alpha        = waterCardAlpha
                                 translationY = waterCardSlide
                             }
-                            .shadow(
-                                elevation    = 8.dp,
-                                shape        = RoundedCornerShape(18.dp),
-                                ambientColor = Color(0x2064B5F6),
-                                spotColor    = Color(0x2064B5F6),
-                            )
+                            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x2064B5F6), spotColor = Color(0x2064B5F6))
                             .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF4FC3F7),
-                                        Color(0xFF0288D1),
-                                    )
-                                )
-                            )
+                            .background(Brush.verticalGradient(listOf(Color(0xFF4FC3F7), Color(0xFF0288D1))))
                             .padding(16.dp)
                     ) {
                         Column {
                             Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x33FFFFFF)),
+                                modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0x33FFFFFF)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     imageVector        = Icons.Rounded.WaterDrop,
                                     contentDescription = null,
                                     tint               = White,
-                                    modifier           = Modifier
-                                        .size(18.dp)
-                                        .scale(waterIconScale), // 맥동
+                                    modifier           = Modifier.size(18.dp).scale(waterIconScale),
                                 )
                             }
                             Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text     = "마지막 물주기",
-                                fontSize = 11.sp,
-                                color    = White.copy(alpha = 0.85f),
-                            )
+                            Text(text = "마지막 물주기", fontSize = 11.sp, color = White.copy(alpha = 0.85f))
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text          = plant.lastWatered,
-                                fontSize      = 20.sp,
-                                fontWeight    = FontWeight.Bold,
-                                color         = White,
-                                letterSpacing = (-0.3).sp,
-                            )
+                            Text(text = plant.lastWatered, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = White, letterSpacing = (-0.3).sp)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text     = "다음: ${plant.nextWater}",
-                                fontSize = 11.sp,
-                                color    = White.copy(alpha = 0.85f),
-                            )
+                            Text(text = "다음: ${plant.nextWater}", fontSize = 11.sp, color = White.copy(alpha = 0.85f))
                         }
                     }
 
-                    // ── 햇빛 카드 ─────────────────────────────
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -423,62 +433,29 @@ fun PlantDetailScreen(
                                 alpha        = sunCardAlpha
                                 translationY = sunCardSlide
                             }
-                            .shadow(
-                                elevation    = 8.dp,
-                                shape        = RoundedCornerShape(18.dp),
-                                ambientColor = Color(0x20FFB300),
-                                spotColor    = Color(0x20FFB300),
-                            )
+                            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x20FFB300), spotColor = Color(0x20FFB300))
                             .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFFFFCA28),
-                                        Color(0xFFFB8C00),
-                                    )
-                                )
-                            )
+                            .background(Brush.verticalGradient(listOf(Color(0xFFFFCA28), Color(0xFFFB8C00))))
                             .padding(16.dp)
                     ) {
                         Column {
                             Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x33FFFFFF)),
+                                modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0x33FFFFFF)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     imageVector        = Icons.Rounded.WbSunny,
                                     contentDescription = null,
                                     tint               = White,
-                                    modifier           = Modifier
-                                        .size(18.dp)
-                                        .graphicsLayer {
-                                            rotationZ = sunIconRotate // 흔들림
-                                        },
+                                    modifier           = Modifier.size(18.dp).graphicsLayer { rotationZ = sunIconRotate },
                                 )
                             }
                             Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text     = "햇빛",
-                                fontSize = 11.sp,
-                                color    = White.copy(alpha = 0.85f),
-                            )
+                            Text(text = "햇빛", fontSize = 11.sp, color = White.copy(alpha = 0.85f))
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text          = plant.sunlight,
-                                fontSize      = 20.sp,
-                                fontWeight    = FontWeight.Bold,
-                                color         = White,
-                                letterSpacing = (-0.3).sp,
-                            )
+                            Text(text = plant.sunlight, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = White, letterSpacing = (-0.3).sp)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text     = "현재 상태",
-                                fontSize = 11.sp,
-                                color    = White.copy(alpha = 0.85f),
-                            )
+                            Text(text = "현재 상태", fontSize = 11.sp, color = White.copy(alpha = 0.85f))
                         }
                     }
                 }
@@ -488,19 +465,10 @@ fun PlantDetailScreen(
                 // ── 환경 정보 카드 ─────────────────────────
                 DetailCard(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text       = "환경 정보",
-                            fontSize   = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
+                        Text(text = "환경 정보", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                         Spacer(modifier = Modifier.height(14.dp))
                         EnvInfoRow(emoji = "🌡", label = "온도", value = plant.temperature)
-                        HorizontalDivider(
-                            modifier  = Modifier.padding(vertical = 12.dp),
-                            color     = Color(0xFFF0F0F0),
-                            thickness = 0.8.dp,
-                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFF0F0F0), thickness = 0.8.dp)
                         EnvInfoRow(emoji = "💧", label = "습도", value = plant.humidity)
                     }
                 }
@@ -510,22 +478,14 @@ fun PlantDetailScreen(
                 // ── AI 분석 보기 버튼 ──────────────────────
                 Button(
                     onClick  = onAiAnalysis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .height(52.dp),
-                    shape  = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A967)),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp),
+                    shape    = RoundedCornerShape(14.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A967)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                 ) {
                     Text(text = "🌿", fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text       = "AI 분석 보기",
-                        fontSize   = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = White,
-                    )
+                    Text(text = "AI 분석 보기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = White)
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -533,30 +493,78 @@ fun PlantDetailScreen(
                 // ── 전문가에게 질문하기 버튼 ───────────────
                 OutlinedButton(
                     onClick  = onAskExpert,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp),
+                    shape    = RoundedCornerShape(14.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDDDDD)),
+                ) {
+                    Icon(imageVector = Icons.Rounded.ChatBubbleOutline, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "전문가에게 질문하기", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // ── 식물 업데이트 버튼 (카메라 실행) ─────────
+                Button(
+                    onClick  = { launchCamera() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
-                        .height(52.dp),
+                        .height(52.dp)
+                        .shadow(
+                            elevation    = 8.dp,
+                            shape        = RoundedCornerShape(14.dp),
+                            ambientColor = Color(0xFF1565C0).copy(alpha = 0.3f),
+                            spotColor    = Color(0xFF1565C0).copy(alpha = 0.3f),
+                        ),
                     shape  = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = 1.dp,
-                        color = Color(0xFFDDDDDD),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1976D2),
                     ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                 ) {
                     Icon(
-                        imageVector        = Icons.Rounded.ChatBubbleOutline,
+                        imageVector        = Icons.Rounded.CameraAlt,
                         contentDescription = null,
-                        tint               = TextSecondary,
-                        modifier           = Modifier.size(16.dp),
+                        tint               = White,
+                        modifier           = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text       = "전문가에게 질문하기",
+                        text       = "식물 업데이트",
                         fontSize   = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color      = TextSecondary,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = White,
                     )
+                }
+
+                // ── 사진 찍혔을 때 완료 안내 ─────────────────
+                if (capturedUri != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFE3F2FD))
+                            .padding(12.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector        = Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint               = Color(0xFF1976D2),
+                                modifier           = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text     = "사진이 저장되었어요! 서버 연결 후 업로드됩니다.",
+                                fontSize = 12.sp,
+                                color    = Color(0xFF1565C0),
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -575,20 +583,13 @@ fun DetailCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation    = 6.dp,
-                shape        = RoundedCornerShape(20.dp),
-                ambientColor = Color(0x0F000000),
-                spotColor    = Color(0x0F000000),
-            )
+            .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x0F000000), spotColor = Color(0x0F000000))
             .clip(RoundedCornerShape(20.dp))
             .background(White)
     ) {
         Column(content = content)
     }
 }
-
-// ── 환경 정보 행 ──────────────────────────────────────────────
 
 @Composable
 fun EnvInfoRow(emoji: String, label: String, value: String) {
@@ -606,11 +607,9 @@ fun EnvInfoRow(emoji: String, label: String, value: String) {
     }
 }
 
-// ── 원형 건강 지표 (progress 직접 받음) ──────────────────────
-
 @Composable
 fun CircularHealthIndicator(
-    progress   : Float,   // 0f ~ 1f (외부에서 애니메이션된 값 주입)
+    progress   : Float,
     size       : Dp,
     stroke     : Dp,
     color      : Color,
@@ -620,29 +619,20 @@ fun CircularHealthIndicator(
         val strokePx = stroke.toPx()
         val padding  = strokePx / 2f
         val diameter = this.size.minDimension - strokePx
-
         drawArc(
-            color      = trackColor,
-            startAngle = -90f,
-            sweepAngle = 360f,
-            useCenter  = false,
-            style      = Stroke(width = strokePx, cap = StrokeCap.Round),
-            topLeft    = androidx.compose.ui.geometry.Offset(padding, padding),
-            size       = androidx.compose.ui.geometry.Size(diameter, diameter),
+            color = trackColor, startAngle = -90f, sweepAngle = 360f, useCenter = false,
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+            topLeft = androidx.compose.ui.geometry.Offset(padding, padding),
+            size    = androidx.compose.ui.geometry.Size(diameter, diameter),
         )
         drawArc(
-            color      = color,
-            startAngle = -90f,
-            sweepAngle = 360f * progress,
-            useCenter  = false,
-            style      = Stroke(width = strokePx, cap = StrokeCap.Round),
-            topLeft    = androidx.compose.ui.geometry.Offset(padding, padding),
-            size       = androidx.compose.ui.geometry.Size(diameter, diameter),
+            color = color, startAngle = -90f, sweepAngle = 360f * progress, useCenter = false,
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+            topLeft = androidx.compose.ui.geometry.Offset(padding, padding),
+            size    = androidx.compose.ui.geometry.Size(diameter, diameter),
         )
     }
 }
-
-// ── Preview ────────────────────────────────────────────────────
 
 @Preview(showBackground = true, showSystemUi = true, name = "Plant Detail")
 @Composable

@@ -98,11 +98,8 @@ fun ConsultScreen(
     onQuestionClick : (String) -> Unit = {},
 ) {
     GrowingTheme {
-        var selectedTab by remember { mutableStateOf(BottomNavTab.CHAT) }
-
         val listState = rememberLazyListState()
 
-        // 헤더 알파: 스크롤할수록 0으로
         val headerAlpha by remember {
             derivedStateOf {
                 when {
@@ -114,8 +111,6 @@ fun ConsultScreen(
                 }
             }
         }
-
-        // 헤더 translationY: 스크롤할수록 위로 살짝 당겨짐
         val headerTranslationY by remember {
             derivedStateOf {
                 if (listState.firstVisibleItemIndex > 0) -40f
@@ -123,11 +118,10 @@ fun ConsultScreen(
             }
         }
 
-        // FAB 맥동 애니메이션
         val infiniteTransition = rememberInfiniteTransition(label = "fab_pulse")
         val fabGlowAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.35f,
-            targetValue  = 0.65f,
+            initialValue  = 0.35f,
+            targetValue   = 0.65f,
             animationSpec = infiniteRepeatable(
                 animation  = tween(1200, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse,
@@ -135,8 +129,8 @@ fun ConsultScreen(
             label = "fab_glow",
         )
         val fabScale by infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue  = 1.04f,
+            initialValue  = 1f,
+            targetValue   = 1.04f,
             animationSpec = infiniteRepeatable(
                 animation  = tween(1200, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse,
@@ -144,57 +138,18 @@ fun ConsultScreen(
             label = "fab_scale",
         )
 
-        Scaffold(
-            containerColor = Color(0xFFF5F7F5),
-            bottomBar = {
-                BottomNavBar(
-                    selectedTab   = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick        = onWriteQuestion,
-                    containerColor = Color(0xFF43A967),
-                    contentColor   = White,
-                    shape          = RoundedCornerShape(28.dp),
-                    modifier       = Modifier
-                        .padding(bottom = 8.dp)
-                        .scale(fabScale)
-                        .shadow(
-                            elevation    = 14.dp,
-                            shape        = RoundedCornerShape(28.dp),
-                            ambientColor = Color(0xFF43A967).copy(alpha = fabGlowAlpha),
-                            spotColor    = Color(0xFF43A967).copy(alpha = fabGlowAlpha),
-                        ),
-                ) {
-                    Row(
-                        modifier          = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            imageVector        = Icons.Rounded.Add,
-                            contentDescription = null,
-                            modifier           = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text       = "질문 작성하기",
-                            fontSize   = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            },
-            floatingActionButtonPosition = FabPosition.End,
-        ) { innerPadding ->
+        // ── Scaffold 제거 → Box로 대체 ───────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF5F7F5))
+        ) {
 
+            // ── LazyColumn (contentPadding bottom으로 FAB 공간 확보) ──
             LazyColumn(
                 state          = listState,
-                modifier       = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp),
+                modifier       = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 100.dp), // FAB 높이만큼 여백
             ) {
 
                 // ── 상단 헤더 ──────────────────────────────
@@ -246,13 +201,11 @@ fun ConsultScreen(
                     }
                 }
 
-                // ── 전문가 랭킹 카드 ───────────────────────
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     AnimatedExpertCard()
                 }
 
-                // ── 최근 질문 타이틀 ───────────────────────
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
                     Row(
@@ -278,7 +231,6 @@ fun ConsultScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                // ── 질문 카드 리스트 ───────────────────────
                 items(
                     items = sampleQuestions,
                     key   = { it.id },
@@ -290,6 +242,41 @@ fun ConsultScreen(
                             horizontal = 20.dp,
                             vertical   = 5.dp,
                         ),
+                    )
+                }
+            }
+
+            // ── FAB: Box 오른쪽 하단에 직접 배치 ────────────
+            FloatingActionButton(
+                onClick        = onWriteQuestion,
+                containerColor = Color(0xFF43A967),
+                contentColor   = White,
+                shape          = RoundedCornerShape(28.dp),
+                modifier       = Modifier
+                    .align(Alignment.BottomEnd)          // 오른쪽 하단
+                    .padding(end = 16.dp, bottom = 16.dp)
+                    .scale(fabScale)
+                    .shadow(
+                        elevation    = 14.dp,
+                        shape        = RoundedCornerShape(28.dp),
+                        ambientColor = Color(0xFF43A967).copy(alpha = fabGlowAlpha),
+                        spotColor    = Color(0xFF43A967).copy(alpha = fabGlowAlpha),
+                    ),
+            ) {
+                Row(
+                    modifier          = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector        = Icons.Rounded.Add,
+                        contentDescription = null,
+                        modifier           = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text       = "질문 작성하기",
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
