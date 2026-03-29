@@ -1,11 +1,16 @@
 from fastapi import FastAPI
-from routes import auth
+from routes import auth, my_plant, detail_my_plant, profile, plant_question, plant_updates
 import uvicorn
 
 app = FastAPI(title="Growing Project")
 
 # auth.py 파일에 있는 기능들을 연결
 app.include_router(auth.router)
+app.include_router(my_plant.router)
+app.include_router(detail_my_plant.router)
+app.include_router(profile.router)
+app.include_router(plant_question.router)
+app.include_router(plant_updates.router)
 
 @app.get("/")
 def root():
