@@ -1,5 +1,11 @@
 package com.project.growing.ui.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -22,14 +28,20 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.project.growing.ui.component.BottomNavBar
-import com.project.growing.ui.component.BottomNavTab
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
 import com.project.growing.ui.theme.*
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 // ── 데이터 ────────────────────────────────────────────────────
 
@@ -67,7 +79,52 @@ fun AddPlantScreen(
     onSubmit : () -> Unit = {},
 ) {
     GrowingTheme {
-        var selectedTab  by remember { mutableStateOf(BottomNavTab.HOME) }
+        val context = LocalContext.current
+
+        // ── 카메라 관련 상태 ───────────────────────────────────
+        var capturedUri  by remember { mutableStateOf<Uri?>(null) }
+        var tempUri      by remember { mutableStateOf<Uri?>(null) }
+
+        fun createTempImageUri(): Uri {
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val file      = File(context.cacheDir, "plant_$timestamp.jpg")
+            return FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+        }
+
+        val cameraLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { success ->
+            if (success && tempUri != null) capturedUri = tempUri
+        }
+
+        val permissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                val uri = createTempImageUri()
+                tempUri = uri
+                cameraLauncher.launch(uri)
+            }
+        }
+
+        fun launchCamera() {
+            val permission = Manifest.permission.CAMERA
+            if (ContextCompat.checkSelfPermission(context, permission)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                val uri = createTempImageUri()
+                tempUri = uri
+                cameraLauncher.launch(uri)
+            } else {
+                permissionLauncher.launch(permission)
+            }
+        }
+
+        // ── 폼 상태 ───────────────────────────────────────────
         var plantName    by remember { mutableStateOf("") }
         var selectedType by remember { mutableStateOf<String?>(null) }
         var selectedLoc  by remember { mutableStateOf<String?>(null) }
@@ -79,6 +136,7 @@ fun AddPlantScreen(
                 && selectedLoc  != null
                 && selectedSize != null
 
+        // ── 스크롤 상태 ───────────────────────────────────────
         val listState = rememberLazyListState()
 
         val headerAlpha by remember {
@@ -96,99 +154,153 @@ fun AddPlantScreen(
             }
         }
 
-        Scaffold(
-            containerColor = Color(0xFFF5F7F5),
-            bottomBar = {
-                BottomNavBar(
-                    selectedTab   = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                )
-            },
-        ) { innerPadding ->
+        // ── 진입 애니메이션 ────────────────────────────────────
+        var entered by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { entered = true }
 
-            LazyColumn(
-                state          = listState,
-                modifier       = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
+        val contentAlpha by animateFloatAsState(
+            targetValue   = if (entered) 1f else 0f,
+            animationSpec = tween(durationMillis = 400, delayMillis = 100, easing = EaseOutCubic),
+            label         = "content_alpha",
+        )
+        val contentSlide by animateFloatAsState(
+            targetValue   = if (entered) 0f else 30f,
+            animationSpec = tween(durationMillis = 400, delayMillis = 100, easing = EaseOutCubic),
+            label         = "content_slide",
+        )
 
-                // ── 헤더 ──────────────────────────────────────
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                alpha        = headerAlpha
-                                translationY = headerTranslationY
-                            }
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF1B5E20),
-                                        Color(0xFF2E7D32),
-                                        Color(0xFF43A967),
-                                    )
+        LazyColumn(
+            state          = listState,
+            modifier       = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF5F7F5)),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
+
+            // ── 헤더 ──────────────────────────────────────────
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha        = headerAlpha
+                            translationY = headerTranslationY
+                        }
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFF1B5E20),
+                                    Color(0xFF2E7D32),
+                                    Color(0xFF43A967),
                                 )
                             )
-                            .padding(
-                                start  = 16.dp,
-                                end    = 16.dp,
-                                top    = 48.dp,
-                                bottom = 24.dp,
+                        )
+                        // 상단 상태바까지 색상 채우기
+                        .statusBarsPadding()
+                        .padding(
+                            start  = 16.dp,
+                            end    = 16.dp,
+                            top    = 8.dp,     // statusBarsPadding이 자동으로 상단 처리
+                            bottom = 24.dp,
+                        )
+                ) {
+                    Column {
+                        // 뒤로가기
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f))
+                                .clickable(
+                                    indication        = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    onClick           = onBack,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector        = Icons.Rounded.ArrowBackIosNew,
+                                contentDescription = "뒤로가기",
+                                tint               = Color.White,
+                                modifier           = Modifier.size(18.dp),
                             )
-                    ) {
-                        Column {
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text          = "식물 등록하기",
+                            fontSize      = 22.sp,
+                            fontWeight    = FontWeight.Bold,
+                            color         = Color.White,
+                            letterSpacing = (-0.3).sp,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text     = "새로운 식물을 추가해보세요 🌱",
+                            fontSize = 13.sp,
+                            color    = Color.White.copy(alpha = 0.88f),
+                        )
+                    }
+                }
+            }
+
+            // ── 이하 콘텐츠 전체에 진입 애니메이션 적용 ────────
+
+            // ── 식물 사진 카드 ─────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                ElevatedSectionCard(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        }
+                ) {
+                    Text(
+                        text       = "식물 사진",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 사진 찍혔으면 미리보기, 아니면 업로드 UI
+                    if (capturedUri != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            AsyncImage(
+                                model             = capturedUri,
+                                contentDescription = "촬영된 식물 사진",
+                                contentScale      = ContentScale.Crop,
+                                modifier          = Modifier.fillMaxSize(),
+                            )
+                            // 재촬영 버튼
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .background(Color.Black.copy(alpha = 0.5f))
                                     .clickable(
                                         indication        = null,
                                         interactionSource = remember { MutableInteractionSource() },
-                                        onClick           = onBack,
-                                    ),
+                                    ) { launchCamera() }
+                                    .padding(8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    imageVector        = Icons.Rounded.ArrowBackIosNew,
-                                    contentDescription = "뒤로가기",
+                                    imageVector        = Icons.Rounded.CameraAlt,
+                                    contentDescription = "재촬영",
                                     tint               = Color.White,
                                     modifier           = Modifier.size(18.dp),
                                 )
                             }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text          = "식물 등록하기",
-                                fontSize      = 22.sp,
-                                fontWeight    = FontWeight.Bold,
-                                color         = Color.White,
-                                letterSpacing = (-0.3).sp,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text     = "새로운 식물을 추가해보세요 🌱",
-                                fontSize = 13.sp,
-                                color    = Color.White.copy(alpha = 0.88f),
-                            )
                         }
-                    }
-                }
-
-                // ── 식물 사진 카드 ─────────────────────────────
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ElevatedSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(
-                            text       = "식물 사진",
-                            fontSize   = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
+                    } else {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -242,360 +354,329 @@ fun AddPlantScreen(
                                 )
                             }
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                        Button(
-                            onClick  = { /* TODO: 카메라/갤러리 연동 */ },
-                            colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
-                            shape    = RoundedCornerShape(50),
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                        ) {
-                            Icon(
-                                imageVector        = Icons.Rounded.CameraAlt,
-                                contentDescription = null,
-                                modifier           = Modifier.size(15.dp),
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text       = "사진 촬영",
-                                fontSize   = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
+                    Button(
+                        onClick  = { launchCamera() },
+                        colors   = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                        shape    = RoundedCornerShape(50),
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Rounded.CameraAlt,
+                            contentDescription = null,
+                            modifier           = Modifier.size(15.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text       = if (capturedUri != null) "재촬영" else "사진 촬영",
+                            fontSize   = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                     }
                 }
+            }
 
-                // ── 식물 이름 카드 ─────────────────────────────
-                item {
+            // ── 식물 이름 카드 ─────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                ElevatedSectionCard(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        }
+                ) {
+                    Text(
+                        text       = "식물 이름",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
-                    ElevatedSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(
-                            text       = "식물 이름",
-                            fontSize   = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value         = plantName,
-                            onValueChange = { plantName = it },
-                            modifier      = Modifier.fillMaxWidth(),
-                            placeholder   = {
-                                Text(
-                                    text     = "우리 집 몬스테라",
-                                    fontSize = 14.sp,
-                                    color    = TextSecondary.copy(alpha = 0.5f),
-                                )
-                            },
-                            singleLine = true,
-                            shape      = RoundedCornerShape(10.dp),
-                            colors     = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor   = GreenPrimary,
-                                unfocusedBorderColor = Color(0xFFDDDDDD),
-                                cursorColor          = GreenPrimary,
-                            ),
-                            textStyle = LocalTextStyle.current.copy(
+                    OutlinedTextField(
+                        value         = plantName,
+                        onValueChange = { plantName = it },
+                        modifier      = Modifier.fillMaxWidth(),
+                        placeholder   = {
+                            Text(
+                                text     = "우리 집 몬스테라",
                                 fontSize = 14.sp,
-                                color    = TextPrimary,
-                            ),
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text     = "식물에게 애칭을 지어주세요",
-                            fontSize = 11.sp,
-                            color    = TextSecondary,
-                        )
-                    }
-                }
-
-                // ── 식물 종류 카드 ─────────────────────────────
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ElevatedSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(
-                            text       = "식물 종류",
-                            fontSize   = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        val rows = plantTypes.chunked(3)
-                        rows.forEachIndexed { rowIdx, rowItems ->
-                            Row(
-                                modifier              = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                rowItems.forEach { type ->
-                                    SelectChip(
-                                        label        = type,
-                                        isSelected   = selectedType == type,
-                                        greenPrimary = GreenPrimary,
-                                        modifier     = Modifier.weight(1f),
-                                        onClick      = { selectedType = type },
-                                    )
-                                }
-                                repeat(3 - rowItems.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                            if (rowIdx < rows.lastIndex) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
-
-                // ── 식물 위치 카드 ─────────────────────────────
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ElevatedSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(
-                            text       = "식물 위치",
-                            fontSize   = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        val rows = locations.chunked(3)
-                        rows.forEachIndexed { rowIdx, rowItems ->
-                            Row(
-                                modifier              = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                rowItems.forEach { loc ->
-                                    SelectChip(
-                                        label        = loc,
-                                        isSelected   = selectedLoc == loc,
-                                        greenPrimary = GreenPrimary,
-                                        modifier     = Modifier.weight(1f),
-                                        onClick      = { selectedLoc = loc },
-                                    )
-                                }
-                                repeat(3 - rowItems.size) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                            if (rowIdx < rows.lastIndex) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
-
-                // ── 화분 크기 카드 ─────────────────────────────
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ElevatedSectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(
-                            text       = "화분 크기",
-                            fontSize   = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        potSizes.forEachIndexed { idx, pot ->
-                            val isSelected = selectedSize == pot.label
-                            val borderColor by animateColorAsState(
-                                targetValue   = if (isSelected) GreenPrimary else Color(0xFFE2E2E2),
-                                animationSpec = tween(200),
-                                label         = "pot_border_${pot.label}",
+                                color    = TextSecondary.copy(alpha = 0.5f),
                             )
-                            val bgColor by animateColorAsState(
-                                targetValue   = if (isSelected) GreenPrimary.copy(alpha = 0.06f) else Color(0xFFFCFCFC),
-                                animationSpec = tween(200),
-                                label         = "pot_bg_${pot.label}",
-                            )
+                        },
+                        singleLine = true,
+                        shape      = RoundedCornerShape(10.dp),
+                        colors     = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = GreenPrimary,
+                            unfocusedBorderColor = Color(0xFFDDDDDD),
+                            cursorColor          = GreenPrimary,
+                        ),
+                        textStyle = LocalTextStyle.current.copy(
+                            fontSize = 14.sp,
+                            color    = TextPrimary,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text     = "식물에게 애칭을 지어주세요",
+                        fontSize = 11.sp,
+                        color    = TextSecondary,
+                    )
+                }
+            }
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .shadow(
-                                        elevation    = if (isSelected) 0.dp else 2.dp,
-                                        shape        = RoundedCornerShape(10.dp),
-                                        ambientColor = Color(0x18000000),
-                                        spotColor    = Color(0x18000000),
-                                    )
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .border(
-                                        width = 1.dp,
-                                        color = borderColor,
-                                        shape = RoundedCornerShape(10.dp),
-                                    )
-                                    .background(bgColor)
-                                    .clickable(
-                                        indication        = null,
-                                        interactionSource = remember { MutableInteractionSource() },
-                                    ) { selectedSize = pot.label }
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                            ) {
-                                Text(
-                                    text       = "${pot.label} (${pot.sub})",
-                                    fontSize   = 14.sp,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color      = if (isSelected) GreenPrimary else TextPrimary,
+            // ── 식물 종류 카드 ─────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                ElevatedSectionCard(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        }
+                ) {
+                    Text(
+                        text       = "식물 종류",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    val rows = plantTypes.chunked(3)
+                    rows.forEachIndexed { rowIdx, rowItems ->
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowItems.forEach { type ->
+                                SelectChip(
+                                    label        = type,
+                                    isSelected   = selectedType == type,
+                                    greenPrimary = GreenPrimary,
+                                    modifier     = Modifier.weight(1f),
+                                    onClick      = { selectedType = type },
                                 )
                             }
-
-                            if (idx < potSizes.lastIndex) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
+                            repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
                         }
+                        if (rowIdx < rows.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
+            }
 
-                // ── AI 추천 관리법 카드 ────────────────────────
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
-                            .shadow(
-                                elevation    = 6.dp,
-                                shape        = RoundedCornerShape(16.dp),
-                                ambientColor = GreenPrimary.copy(alpha = 0.15f),
-                                spotColor    = GreenPrimary.copy(alpha = 0.15f),
-                            )
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(Color(0xFFEDF7F1), Color(0xFFF5FAF7))
-                                )
-                            )
-                            .border(
-                                width = 1.dp,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        GreenPrimary.copy(alpha = 0.35f),
-                                        Color(0xFFD0EDD8),
-                                    )
-                                ),
-                                shape = RoundedCornerShape(16.dp),
-                            )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .shadow(
-                                            elevation    = 4.dp,
-                                            shape        = RoundedCornerShape(8.dp),
-                                            ambientColor = GreenPrimary.copy(alpha = 0.4f),
-                                            spotColor    = GreenPrimary.copy(alpha = 0.4f),
-                                        )
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(GreenPrimary),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector        = Icons.Rounded.AutoAwesome,
-                                        contentDescription = null,
-                                        tint               = Color.White,
-                                        modifier           = Modifier.size(17.dp),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text       = "AI 추천 관리법",
-                                    fontSize   = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color      = TextPrimary,
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text       = "선택하신 식물에 맞는 기본 관리법을\n알려드려요!",
-                                fontSize   = 13.sp,
-                                color      = TextSecondary,
-                                lineHeight = 19.sp,
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            sampleCareTips.forEach { tip ->
-                                Row(
-                                    modifier          = Modifier.padding(vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(text = "•", fontSize = 13.sp, color = GreenPrimary)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text       = "${tip.label}: ",
-                                        fontSize   = 13.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color      = TextPrimary,
-                                    )
-                                    Text(
-                                        text     = tip.value,
-                                        fontSize = 13.sp,
-                                        color    = TextSecondary,
-                                    )
-                                }
-                            }
+            // ── 식물 위치 카드 ─────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                ElevatedSectionCard(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
                         }
+                ) {
+                    Text(
+                        text       = "식물 위치",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    val rows = locations.chunked(3)
+                    rows.forEachIndexed { rowIdx, rowItems ->
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowItems.forEach { loc ->
+                                SelectChip(
+                                    label        = loc,
+                                    isSelected   = selectedLoc == loc,
+                                    greenPrimary = GreenPrimary,
+                                    modifier     = Modifier.weight(1f),
+                                    onClick      = { selectedLoc = loc },
+                                )
+                            }
+                            repeat(3 - rowItems.size) { Spacer(modifier = Modifier.weight(1f)) }
+                        }
+                        if (rowIdx < rows.lastIndex) Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
+            }
 
-                // ── 식물 등록하기 버튼 (스크롤 맨 아래) ──────────
-                item {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Column(
-                        modifier            = Modifier
-                            .padding(horizontal = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Button(
-                            onClick  = { if (isFormValid) onSubmit() },
-                            enabled  = isFormValid,
+            // ── 화분 크기 카드 ─────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                ElevatedSectionCard(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        }
+                ) {
+                    Text(
+                        text       = "화분 크기",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    potSizes.forEachIndexed { idx, pot ->
+                        val isSelected  = selectedSize == pot.label
+                        val borderColor by animateColorAsState(
+                            targetValue   = if (isSelected) GreenPrimary else Color(0xFFE2E2E2),
+                            animationSpec = tween(200),
+                            label         = "pot_border_${pot.label}",
+                        )
+                        val bgColor by animateColorAsState(
+                            targetValue   = if (isSelected) GreenPrimary.copy(alpha = 0.06f) else Color(0xFFFCFCFC),
+                            animationSpec = tween(200),
+                            label         = "pot_bg_${pot.label}",
+                        )
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
-                                .then(
-                                    if (isFormValid) Modifier.shadow(
-                                        elevation    = 10.dp,
-                                        shape        = RoundedCornerShape(16.dp),
-                                        ambientColor = GreenPrimary.copy(alpha = 0.4f),
-                                        spotColor    = GreenPrimary.copy(alpha = 0.4f),
-                                    ) else Modifier
-                                ),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor         = GreenPrimary,
-                                disabledContainerColor = Color(0xFFCCCCCC),
-                            ),
-                            shape = RoundedCornerShape(16.dp),
+                                .shadow(if (isSelected) 0.dp else 2.dp, RoundedCornerShape(10.dp),
+                                    ambientColor = Color(0x18000000), spotColor = Color(0x18000000))
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                .background(bgColor)
+                                .clickable(
+                                    indication        = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                ) { selectedSize = pot.label }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                         ) {
-                            Text(text = "🌿", fontSize = 15.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text       = "식물 등록하기",
-                                fontSize   = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color      = Color.White,
+                                text       = "${pot.label} (${pot.sub})",
+                                fontSize   = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                color      = if (isSelected) GreenPrimary else TextPrimary,
                             )
                         }
+                        if (idx < potSizes.lastIndex) Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
 
-                        if (!isFormValid) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text     = "모든 항목을 입력해주세요",
-                                fontSize = 12.sp,
-                                color    = TextSecondary,
-                            )
+            // ── AI 추천 관리법 카드 ────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        }
+                        .shadow(6.dp, RoundedCornerShape(16.dp),
+                            ambientColor = GreenPrimary.copy(alpha = 0.15f),
+                            spotColor    = GreenPrimary.copy(alpha = 0.15f))
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Brush.verticalGradient(listOf(Color(0xFFEDF7F1), Color(0xFFF5FAF7))))
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.verticalGradient(listOf(GreenPrimary.copy(alpha = 0.35f), Color(0xFFD0EDD8))),
+                            shape = RoundedCornerShape(16.dp),
+                        )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .shadow(4.dp, RoundedCornerShape(8.dp),
+                                        ambientColor = GreenPrimary.copy(alpha = 0.4f),
+                                        spotColor    = GreenPrimary.copy(alpha = 0.4f))
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(GreenPrimary),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(17.dp))
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("AI 추천 관리법", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text       = "선택하신 식물에 맞는 기본 관리법을\n알려드려요!",
+                            fontSize   = 13.sp,
+                            color      = TextSecondary,
+                            lineHeight = 19.sp,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        sampleCareTips.forEach { tip ->
+                            Row(modifier = Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("•", fontSize = 13.sp, color = GreenPrimary)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("${tip.label}: ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Text(tip.value, fontSize = 13.sp, color = TextSecondary)
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
+            }
+
+            // ── 등록 버튼 ──────────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(20.dp))
+                Column(
+                    modifier            = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Button(
+                        onClick  = { if (isFormValid) onSubmit() },
+                        enabled  = isFormValid,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .then(
+                                if (isFormValid) Modifier.shadow(
+                                    elevation    = 10.dp,
+                                    shape        = RoundedCornerShape(16.dp),
+                                    ambientColor = GreenPrimary.copy(alpha = 0.4f),
+                                    spotColor    = GreenPrimary.copy(alpha = 0.4f),
+                                ) else Modifier
+                            ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor         = GreenPrimary,
+                            disabledContainerColor = Color(0xFFCCCCCC),
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text(text = "🌿", fontSize = 15.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text       = "식물 등록하기",
+                            fontSize   = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = Color.White,
+                        )
+                    }
+                    if (!isFormValid) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = "모든 항목을 입력해주세요", fontSize = 12.sp, color = TextSecondary)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
 
-// ── 입체감 있는 섹션 카드 ──────────────────────────────────────
+// ── 섹션 카드 ─────────────────────────────────────────────────
 
 @Composable
 private fun ElevatedSectionCard(
@@ -605,30 +686,16 @@ private fun ElevatedSectionCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation    = 8.dp,
-                shape        = RoundedCornerShape(16.dp),
-                ambientColor = Color(0x14000000),
-                spotColor    = Color(0x20000000),
-            )
+            .shadow(8.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x14000000), spotColor = Color(0x20000000))
             .clip(RoundedCornerShape(16.dp))
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFFFFFFFF), Color(0xFFF8F8F8))
-                )
-            )
+            .background(Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFF8F8F8))))
             .border(
                 width = 1.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFFFFFFFF), Color(0xFFE0E0E0))
-                ),
+                brush = Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFE0E0E0))),
                 shape = RoundedCornerShape(16.dp),
             )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            content  = content,
-        )
+        Column(modifier = Modifier.padding(16.dp), content = content)
     }
 }
 
@@ -642,42 +709,17 @@ private fun SelectChip(
     modifier     : Modifier = Modifier,
     onClick      : () -> Unit,
 ) {
-    val borderColor by animateColorAsState(
-        targetValue   = if (isSelected) greenPrimary else Color(0xFFDDDDDD),
-        animationSpec = tween(200),
-        label         = "chip_border_$label",
-    )
-    val bgColor by animateColorAsState(
-        targetValue   = if (isSelected) greenPrimary.copy(alpha = 0.08f) else Color(0xFFFCFCFC),
-        animationSpec = tween(200),
-        label         = "chip_bg_$label",
-    )
-    val textColor by animateColorAsState(
-        targetValue   = if (isSelected) greenPrimary else TextSecondary,
-        animationSpec = tween(200),
-        label         = "chip_text_$label",
-    )
+    val borderColor by animateColorAsState(if (isSelected) greenPrimary else Color(0xFFDDDDDD), tween(200), label = "cb_$label")
+    val bgColor     by animateColorAsState(if (isSelected) greenPrimary.copy(alpha = 0.08f) else Color(0xFFFCFCFC), tween(200), label = "cbg_$label")
+    val textColor   by animateColorAsState(if (isSelected) greenPrimary else TextSecondary, tween(200), label = "ct_$label")
 
     Box(
         modifier = modifier
-            .shadow(
-                elevation    = if (isSelected) 0.dp else 2.dp,
-                shape        = RoundedCornerShape(10.dp),
-                ambientColor = Color(0x14000000),
-                spotColor    = Color(0x14000000),
-            )
+            .shadow(if (isSelected) 0.dp else 2.dp, RoundedCornerShape(10.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000))
             .clip(RoundedCornerShape(10.dp))
-            .border(
-                width = 1.dp,
-                color = borderColor,
-                shape = RoundedCornerShape(10.dp),
-            )
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
             .background(bgColor)
-            .clickable(
-                indication        = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick           = onClick,
-            )
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -691,8 +733,6 @@ private fun SelectChip(
         )
     }
 }
-
-// ── Preview ────────────────────────────────────────────────────
 
 @Preview(showBackground = true, showSystemUi = true, name = "Add Plant Screen")
 @Composable

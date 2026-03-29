@@ -69,4 +69,6 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.4.0")
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.34.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
