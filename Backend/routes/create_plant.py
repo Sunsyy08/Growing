@@ -8,7 +8,7 @@ router = APIRouter(tags=["Create Plant"])
 
 @router.post("/create_plant")
 def create_plant(user_id: int, image: UploadFile, plant_kind: str, plant_location: str, pot_size: str, water_cycle: str):
-    UPLOAD_DIR = "Backend/static"
+    UPLOAD_DIR = "/Users/honggunwoo/Desktop/Growing/static"
     
     content = image.file.read()
     filename = f"{str(uuid.uuid4())}.jpg"  # uuid로 유니크한 파일명으로 변경
