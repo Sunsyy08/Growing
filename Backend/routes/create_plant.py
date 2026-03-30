@@ -19,7 +19,7 @@ def create_plant(user_id: int, image: UploadFile, plant_kind: str, plant_locatio
     cursor = conn.cursor()
     
     try:
-        sql_insert = "INSERT INTO create_plants (user_id, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%d, %s, %s, %s, %s, %s)"
+        sql_insert = "INSERT INTO create_plants (user_id, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s)"
         cursor.execute(sql_insert, (user_id, filename, plant_kind, plant_location, pot_size, water_cycle))
         conn.commit()
     finally:
