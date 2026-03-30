@@ -262,6 +262,23 @@ fun SignUpScreen(
                             },
                             isLoading = state.isLoading,
                         )
+
+                        if (state.errorMessage != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFFFEBEE))
+                                    .padding(12.dp),
+                            ) {
+                                Text(
+                                    text     = state.errorMessage!!,
+                                    fontSize = 13.sp,
+                                    color    = Color(0xFFE53935),
+                                )
+                            }
+                        }
                     }
                 }
 
