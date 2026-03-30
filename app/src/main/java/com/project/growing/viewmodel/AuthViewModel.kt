@@ -1,6 +1,7 @@
 package com.project.growing.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.project.growing.data.auth.AuthRepository
 import com.project.growing.util.Result
@@ -10,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// ── 로그인 UI 상태 ─────────────────────────────────────────────
 data class LoginUiState(
     val email             : String  = "",
     val password          : String  = "",
@@ -22,7 +22,6 @@ data class LoginUiState(
     val errorMessage      : String? = null,
 )
 
-// ── 회원가입 UI 상태 ───────────────────────────────────────────
 data class SignUpUiState(
     val name              : String  = "",
     val email             : String  = "",
@@ -36,15 +35,19 @@ data class SignUpUiState(
     val errorMessage      : String? = null,
 )
 
-class AuthViewModel : ViewModel() {
+// ViewModel → AndroidViewModel 로 변경 (Context 사용)
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = AuthRepository()
+    private val repository = AuthRepository(application.applicationContext)
 
     private val _loginState  = MutableStateFlow(LoginUiState())
     val loginState: StateFlow<LoginUiState> = _loginState.asStateFlow()
 
     private val _signUpState = MutableStateFlow(SignUpUiState())
     val signUpState: StateFlow<SignUpUiState> = _signUpState.asStateFlow()
+
+    // ── 저장된 userId 노출 ─────────────────────────────────────
+    val userId   = repository.userId    // Flow<String?>
 
     // ══════════════════════════════════════════════════════════
     // 로그인
@@ -63,9 +66,7 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onLoginSubmit() {
-        val state = _loginState.value
-
-        // 유효성 검사
+        val state         = _loginState.value
         val emailError    = validateEmail(state.email)
         val passwordError = validatePassword(state.password)
 
@@ -76,14 +77,9 @@ class AuthViewModel : ViewModel() {
 
         viewModelScope.launch {
             _loginState.update { it.copy(isLoading = true, errorMessage = null) }
-
             when (val result = repository.login(state.email.trim(), state.password)) {
-                is Result.Success -> {
-                    _loginState.update { it.copy(isLoading = false, loginSuccess = true) }
-                }
-                is Result.Error   -> {
-                    _loginState.update { it.copy(isLoading = false, errorMessage = result.message) }
-                }
+                is Result.Success -> _loginState.update { it.copy(isLoading = false, loginSuccess = true) }
+                is Result.Error   -> _loginState.update { it.copy(isLoading = false, errorMessage = result.message) }
                 is Result.Loading -> Unit
             }
         }
@@ -110,39 +106,36 @@ class AuthViewModel : ViewModel() {
     }
 
     fun onSignUpSubmit() {
-        val state = _signUpState.value
-
+        val state         = _signUpState.value
         val nameError     = if (state.name.isBlank()) "이름을 입력해주세요." else null
         val emailError    = validateEmail(state.email)
         val passwordError = validatePassword(state.password)
 
         if (nameError != null || emailError != null || passwordError != null) {
             _signUpState.update {
-                it.copy(
-                    nameError     = nameError,
-                    emailError    = emailError,
-                    passwordError = passwordError,
-                )
+                it.copy(nameError = nameError, emailError = emailError, passwordError = passwordError)
             }
             return
         }
 
         viewModelScope.launch {
             _signUpState.update { it.copy(isLoading = true, errorMessage = null) }
-
             when (val result = repository.signUp(
                 name     = state.name.trim(),
                 email    = state.email.trim(),
                 password = state.password,
             )) {
-                is Result.Success -> {
-                    _signUpState.update { it.copy(isLoading = false, signUpSuccess = true) }
-                }
-                is Result.Error   -> {
-                    _signUpState.update { it.copy(isLoading = false, errorMessage = result.message) }
-                }
+                is Result.Success -> _signUpState.update { it.copy(isLoading = false, signUpSuccess = true) }
+                is Result.Error   -> _signUpState.update { it.copy(isLoading = false, errorMessage = result.message) }
                 is Result.Loading -> Unit
             }
+        }
+    }
+
+    // ── 로그아웃 ───────────────────────────────────────────────
+    fun logout() {
+        viewModelScope.launch {
+            repository.logout()
         }
     }
 

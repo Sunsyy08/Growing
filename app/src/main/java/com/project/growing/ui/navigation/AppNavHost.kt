@@ -20,6 +20,8 @@ import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
 import com.project.growing.ui.screen.*
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.project.growing.viewmodel.AuthViewModel
 
 
 // ── 바텀바가 보여야 하는 라우트 목록 ──────────────────────────
@@ -220,6 +222,19 @@ fun AppNavHost(
                     onSubmit = { navController.popBackStack() },
                 )
             }
+
+            composable(Screen.My.route) {
+                val authViewModel: AuthViewModel = viewModel()
+                MyPageScreen(
+                    onLogout = {
+                        authViewModel.logout()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                )
+            }
+
         }
     }
 }
