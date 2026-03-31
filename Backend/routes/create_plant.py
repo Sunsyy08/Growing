@@ -94,7 +94,7 @@ def get_image(user_id: int):
             ORDER BY created_at DESC;
         """
     cursor.execute(sql, (user_id,))
-    plants = cursor.fetchcall()
+    plants = cursor.fetchall()
     result = []
 
     for row in plants:
@@ -114,7 +114,7 @@ def get_score(user_id: int, plant_kind: str):
             select image_url from create_plants where user_id =%s
         """
     cursor.execute(sql, (user_id,))
-    plants = cursor.fetchcall()
+    plants = cursor.fetchall()
     result = []
     for plant in plants:
         result.append({
