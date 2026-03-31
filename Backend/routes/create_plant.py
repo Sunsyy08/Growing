@@ -29,6 +29,15 @@ def create_plant(user_id: int, image: UploadFile, plant_kind: str, plant_locatio
 
 @router.get("/get_plant_image")
 def get_image(plant_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
     
-    return FileResponse()
+    sql = """
+            select image_url from create_plants where id =%s
+        """
+    cursor.execute(sql, (plant_id,))
+    plant = cursor.fetchone()
+    image = f"/Users/honggunwoo/Desktop/Growing/static/{plant}"
+    print(plant)
+    return FileResponse(image)
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
