@@ -131,7 +131,10 @@ def get_score(plant_id: int):
     cursor.execute(sql, (plant_id,))
     plant = cursor.fetchone()
     image = f"{plant['image_url']}"
-    plant_kind = plant['plant_kind']
+    if plant['plant_kind'] == "카사바":
+        plant_kind = "casava"
+    elif plant['plant_kind'] == "고무나무":
+        plant_kind = "rubber"
     score = predict_model(image, plant_kind)
     if score >= 70:
         status = "좋음"
