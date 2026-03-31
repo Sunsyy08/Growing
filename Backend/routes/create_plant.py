@@ -103,7 +103,7 @@ def get_image(user_id: int):
             "image_url": f"/Users/honggunwoo/Desktop/Growing/static/{row["image_url"]}"
         })
     print(result[0]["image_url"])
-    return FileResponse(result)
+    return {"plant_id":result[0]["plant_id"], "image":FileResponse(result)}
 
 @router.get("/get_score")
 def get_score(user_id: int, plant_kind: str):
