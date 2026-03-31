@@ -7,16 +7,6 @@ import os
 
 router = APIRouter(tags=["Create Plant"])
 
-def get_health_score(label, confidence):
-    base_score = {
-        "Healthy": 100,
-        "Mosaic": 65,
-        "blight": 20
-    }
-
-    score = base_score[label] * confidence + 100 * (1 - confidence)
-    return score
-
 def predict_model(image: str, model: str):
     if(model == 'casava'):
         model = YOLO("runs/detect/train2/weights/casava_model.pt")
