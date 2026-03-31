@@ -121,16 +121,17 @@ def get_image(plant_id: int):
     return FileResponse(image)
 
 @router.get("/get_score")
-def get_score(plant_id: int, plant_kind: str):
+def get_score(plant_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     sql = """
-            select image_url from create_plants where id =%s
+            select image_url, plant_kind from create_plants where id =%s
         """
     cursor.execute(sql, (plant_id,))
     plant = cursor.fetchone()
     image = f"{plant['image_url']}"
+    plant_kind = plant['plant_kind']
     score = predict_model(image, plant_kind)
     if score >= 70:
         status = "좋음"
