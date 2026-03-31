@@ -93,7 +93,7 @@ def get_image(plant_id: int):
         """
     cursor.execute(sql, (plant_id,))
     plant = cursor.fetchone()
-    image = f"/Users/honggunwoo/Desktop/Growing/static/{plant}"
+    image = f"/Users/honggunwoo/Desktop/Growing/static/{plant['image_url']}"
     print(plant)
     return FileResponse(image)
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
