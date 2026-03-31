@@ -14,7 +14,7 @@ def predict_model(image: str, model: str):
         model = YOLO("/Users/honggunwoo/Desktop/Growing/Backend/models/rubber_model.pt")
 
     results = model.predict(
-        source=f"{image}",
+        source=f"/Users/honggunwoo/Desktop/Growing/static/{image}",
         imgsz=640,
         conf=0.05,   
         iou=0.5
@@ -81,6 +81,30 @@ def update_plant(plant_id: int, image: UploadFile, select_model: str):
         conn.close()
 
     return {"filename": filename, "score":score}
+
+@router.get("/get_plantid")
+def get_id(user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = """
+        SELECT id
+        FROM create_plants
+        WHERE user_id = %s
+        ORDER BY created_at DESC;
+    """
+
+    cursor.execute(sql, (user_id,))
+    plants = cursor.fetchall()
+
+    result = []
+
+    for row in plants:
+        result.append({
+            "plant_id": row["id"]
+        })
+
+    return result
 
 @router.get("/get_plant_image")
 def get_image(user_id: int):
