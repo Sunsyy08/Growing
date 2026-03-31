@@ -39,7 +39,7 @@ def predict_model(image: str, model: str):
     return score
 
 @router.post("/create_plant")
-def create_plant(user_id: int, plant_name: str, image: UploadFile, plant_kind: str, plant_location: str, pot_size: str, water_cycle: str):
+def create_plant(user_id: int, image: UploadFile, plant_kind: str, plant_location: str, pot_size: str, water_cycle: str):
     UPLOAD_DIR = "/Users/honggunwoo/Desktop/Growing/static"
     
     content = image.file.read()
@@ -51,8 +51,8 @@ def create_plant(user_id: int, plant_name: str, image: UploadFile, plant_kind: s
     cursor = conn.cursor()
     
     try:
-        sql_insert = "INSERT INTO create_plants (user_id, plant_name, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-        cursor.execute(sql_insert, (user_id, plant_name, filename, plant_kind, plant_location, pot_size, water_cycle))
+        sql_insert = "INSERT INTO create_plants (user_id, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(sql_insert, (user_id, filename, plant_kind, plant_location, pot_size, water_cycle))
         conn.commit()
     finally:
         conn.close()
@@ -107,58 +107,36 @@ def get_id(user_id: int):
     return result
 
 @router.get("/get_plant_image")
-def get_image(user_id: int):
+def get_image(plant_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     sql = """
-            SELECT id, image_url
-            FROM create_plants
-            WHERE user_id = %s
-            ORDER BY created_at DESC;
+            select image_url from create_plants where id =%s
         """
-    cursor.execute(sql, (user_id,))
-    plants = cursor.fetchall()
-    result = []
-
-    for row in plants:
-        result.append({
-            "plant_id": row["id"],
-            "image_url": f"/Users/honggunwoo/Desktop/Growing/static/{row["image_url"]}"
-        })
-    print(result[0]["image_url"])
-    return {"plant_id":result[0]["plant_id"], "image":FileResponse(result)}
+    cursor.execute(sql, (plant_id,))
+    plant = cursor.fetchone()
+    image = f"/Users/honggunwoo/Desktop/Growing/static/{plant['image_url']}"
+    print(plant)
+    return FileResponse(image)
 
 @router.get("/get_score")
-def get_score(user_id: int, plant_kind: str):
+def get_score(plant_id: int, plant_kind: str):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     sql = """
-            select image_url from create_plants where user_id =%s
+            select image_url from create_plants where id =%s
         """
-    cursor.execute(sql, (user_id,))
-    plants = cursor.fetchall()
-    result = []
-    for plant in plants:
-        result.append({
-            "id": plant["id"],
-            "image": plant["image_url"]
-        })
-        
-    scorestatus = []
-    
-    for image in result:
-        image = f"/Users/honggunwoo/Desktop/Growing/static/{image['image']}"
-        score = predict_model(image, plant_kind)
-        if score >= 70:
-            status = "좋음"
-        elif score >= 40:
-            status = "보통"
-        else:
-            status = "나쁨"
-        scorestatus.append({"id": image["id"], "score": score, "status":status})
-    
-    
-    return scorestatus
+    cursor.execute(sql, (plant_id,))
+    plant = cursor.fetchone()
+    image = f"{plant['image_url']}"
+    score = predict_model(image, plant_kind)
+    if score >= 70:
+        status = "좋음"
+    elif score >= 40:
+        status = "보통"
+    else:
+        status = "나쁨"
+    return {"점수":score, "상태":status}
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
