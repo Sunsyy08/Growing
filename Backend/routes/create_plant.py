@@ -17,8 +17,7 @@ def predict_model(image: str, model: str):
         source=f"/Users/honggunwoo/Desktop/Growing/static/{image}",
         imgsz=640,
         conf=0.05,   
-        iou=0.5,
-        device=0
+        iou=0.5
     )
 
     names = model.names
