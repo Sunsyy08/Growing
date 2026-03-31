@@ -84,7 +84,7 @@ def update_plant(plant_id: int, image: UploadFile, select_model: str):
     return {"filename": filename}
 
 @router.get("/get_plant_image")
-def get_image(plant_id: int):
+def get_image(plant_id: int, model: str):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -95,5 +95,6 @@ def get_image(plant_id: int):
     plant = cursor.fetchone()
     image = f"/Users/honggunwoo/Desktop/Growing/static/{plant['image_url']}"
     print(plant)
-    return FileResponse(image)
+    score = predict_model(image, model)
+    return FileResponse(image), score
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
