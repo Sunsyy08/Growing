@@ -39,7 +39,7 @@ def predict_model(image: str, model: str):
     return score
 
 @router.post("/create_plant")
-def create_plant(user_id: int, image: UploadFile, plant_kind: str, plant_location: str, pot_size: str, water_cycle: str):
+def create_plant(user_id: int, plant_name: str, image: UploadFile, plant_kind: str, plant_location: str, pot_size: str, water_cycle: str):
     UPLOAD_DIR = "/Users/honggunwoo/Desktop/Growing/static"
     
     content = image.file.read()
@@ -51,8 +51,8 @@ def create_plant(user_id: int, image: UploadFile, plant_kind: str, plant_locatio
     cursor = conn.cursor()
     
     try:
-        sql_insert = "INSERT INTO create_plants (user_id, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s)"
-        cursor.execute(sql_insert, (user_id, filename, plant_kind, plant_location, pot_size, water_cycle))
+        sql_insert = "INSERT INTO create_plants (user_id, plant_name, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(sql_insert, (user_id, plant_name, filename, plant_kind, plant_location, pot_size, water_cycle))
         conn.commit()
     finally:
         conn.close()
