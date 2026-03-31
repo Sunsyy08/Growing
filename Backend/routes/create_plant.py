@@ -89,22 +89,21 @@ def get_image(user_id: int):
     
     sql = """
             SELECT id, image_url
-            FROM your_table
+            FROM create_plants
             WHERE user_id = %s
             ORDER BY created_at DESC;
         """
-    cursor.execute(sql, (user_id))
-    plants = cursor.fetchone()
+    cursor.execute(sql, (user_id,))
+    plants = cursor.fetchcall()
     result = []
-    images = [
-        {
+
+    for row in plants:
+        result.append({
             "plant_id": row[0],
             "image_url": f"/Users/honggunwoo/Desktop/Growing/static/{row[1]}"
-        }
-        for row in result
-    ]
-    print(images["image_url"])
-    return FileResponse(images["image_url"])
+        })
+    print(result["image_url"])
+    return FileResponse(result["image_url"])
 
 @router.get("/get_score")
 def get_score(user_id: int, plant_kind: str):
@@ -114,8 +113,8 @@ def get_score(user_id: int, plant_kind: str):
     sql = """
             select image_url from create_plants where user_id =%s
         """
-    cursor.execute(sql, (user_id))
-    plants = cursor.fetchone()
+    cursor.execute(sql, (user_id,))
+    plants = cursor.fetchcall()
     result = []
     for plant in plants:
         result.append({
