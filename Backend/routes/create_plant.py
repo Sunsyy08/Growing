@@ -82,30 +82,6 @@ def update_plant(plant_id: int, image: UploadFile, select_model: str):
 
     return {"filename": filename, "score":score}
 
-@router.get("/get_plantid")
-def get_id(user_id: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    sql = """
-        SELECT id
-        FROM create_plants
-        WHERE user_id = %s
-        ORDER BY created_at DESC;
-    """
-
-    cursor.execute(sql, (user_id,))
-    plants = cursor.fetchall()
-
-    result = []
-
-    for row in plants:
-        result.append({
-            "plant_id": row["id"]
-        })
-
-    return result
-
 @router.get("/get_plant_image")
 def get_image(plant_id: int):
     conn = get_db_connection()
@@ -140,3 +116,27 @@ def get_score(plant_id: int, plant_kind: str):
         status = "나쁨"
     return {"점수":score, "상태":status}
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
+
+@router.get("/get_plantid")
+def get_id(user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = """
+        SELECT id
+        FROM create_plants
+        WHERE user_id = %s
+        ORDER BY created_at DESC;
+    """
+
+    cursor.execute(sql, (user_id,))
+    plants = cursor.fetchall()
+
+    result = []
+
+    for row in plants:
+        result.append({
+            "plant_id": row["id"]
+        })
+
+    return result
