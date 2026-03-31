@@ -9,9 +9,9 @@ router = APIRouter(tags=["Create Plant"])
 
 def predict_model(image: str, model: str):
     if(model == 'casava'):
-        model = YOLO("runs/detect/train2/weights/casava_model.pt")
+        model = YOLO("/Users/honggunwoo/Desktop/Growing/Backend/models/casava_model.pt")
     if(model == 'rubber'):
-        model = YOLO("runs/detect/train2/weights/rubber_model.pt")
+        model = YOLO("/Users/honggunwoo/Desktop/Growing/Backend/models/rubber_model.pt")
 
     results = model.predict(
         source=f"/Users/honggunwoo/Desktop/Growing/static/{image}",
