@@ -37,8 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.project.growing.ui.theme.*
+import com.project.growing.viewmodel.PlantViewModel
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -71,6 +74,13 @@ private val sampleCareTips = listOf(
     CareTip("온도", "18-24°C 유지"),
 )
 
+// ── 물 주기 카드 ───────────────────────────────────────────────
+private val waterCycleOptions = listOf(
+    "1일 전", "2일 전", "3일 전",
+    "4일 전", "5일 전", "6일 전",
+    "1주일 전", "2주일 전", "한달 전",
+)
+
 // ── AddPlantScreen ─────────────────────────────────────────────
 
 @Composable
@@ -84,6 +94,20 @@ fun AddPlantScreen(
         // ── 카메라 관련 상태 ───────────────────────────────────
         var capturedUri  by remember { mutableStateOf<Uri?>(null) }
         var tempUri      by remember { mutableStateOf<Uri?>(null) }
+
+        val plantViewModel : PlantViewModel = viewModel()
+        val uiState by plantViewModel.uiState.collectAsStateWithLifecycle()
+
+        // 등록 성공 시 화면 이동
+        LaunchedEffect(uiState.isSuccess) {
+            if (uiState.isSuccess) {
+                plantViewModel.resetState()
+                onSubmit()
+            }
+        }
+
+        // 기존 상태 변수들 아래에 추가
+        var selectedWaterCycle by remember { mutableStateOf<String?>(null) }
 
         fun createTempImageUri(): Uri {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
@@ -135,6 +159,7 @@ fun AddPlantScreen(
                 && selectedType != null
                 && selectedLoc  != null
                 && selectedSize != null
+                && selectedWaterCycle != null
 
         // ── 스크롤 상태 ───────────────────────────────────────
         val listState = rememberLazyListState()
@@ -565,6 +590,57 @@ fun AddPlantScreen(
                 }
             }
 
+            // ── 물 주기 카드 ───────────────────────────────────────────────
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                ElevatedSectionCard(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer {
+                            alpha        = contentAlpha
+                            translationY = contentSlide
+                        }
+                ) {
+                    Text(
+                        text       = "마지막 물 주기",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = TextPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text     = "언제 마지막으로 물을 주셨나요?",
+                        fontSize = 12.sp,
+                        color    = TextSecondary,
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val rows = waterCycleOptions.chunked(3)
+                    rows.forEachIndexed { rowIdx, rowItems ->
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowItems.forEach { cycle ->
+                                SelectChip(
+                                    label        = cycle,
+                                    isSelected   = selectedWaterCycle == cycle,
+                                    greenPrimary = GreenPrimary,
+                                    modifier     = Modifier.weight(1f),
+                                    onClick      = { selectedWaterCycle = cycle },
+                                )
+                            }
+                            repeat(3 - rowItems.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                        if (rowIdx < rows.lastIndex) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+
             // ── AI 추천 관리법 카드 ────────────────────────────
             item {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -624,21 +700,28 @@ fun AddPlantScreen(
                 }
             }
 
-            // ── 등록 버튼 ──────────────────────────────────────
+            // ── 등록 버튼 ────────────────────────────
             item {
                 Spacer(modifier = Modifier.height(20.dp))
                 Column(
-                    modifier            = Modifier
+                    modifier = Modifier
                         .padding(horizontal = 16.dp)
-                        .graphicsLayer {
-                            alpha        = contentAlpha
-                            translationY = contentSlide
-                        },
+                        .graphicsLayer { alpha = contentAlpha; translationY = contentSlide },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Button(
-                        onClick  = { if (isFormValid) onSubmit() },
-                        enabled  = isFormValid,
+                        onClick  = {
+                            if (isFormValid) {
+                                plantViewModel.registerPlant(
+                                    plantKind     = selectedType       ?: "",
+                                    plantLocation = selectedLoc        ?: "",
+                                    potSize       = selectedSize       ?: "",
+                                    waterCycle    = selectedWaterCycle ?: "",
+                                    imageUri      = capturedUri,
+                                )
+                            }
+                        },
+                        enabled  = isFormValid && !uiState.isLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
@@ -656,18 +739,55 @@ fun AddPlantScreen(
                         ),
                         shape = RoundedCornerShape(16.dp),
                     ) {
-                        Text(text = "🌿", fontSize = 15.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text       = "식물 등록하기",
-                            fontSize   = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = Color.White,
-                        )
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(
+                                color       = Color.White,
+                                modifier    = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text       = "등록 중...",
+                                fontSize   = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = Color.White,
+                            )
+                        } else {
+                            Text(text = "🌿", fontSize = 15.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text       = "식물 등록하기",
+                                fontSize   = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = Color.White,
+                            )
+                        }
                     }
+
                     if (!isFormValid) {
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(text = "모든 항목을 입력해주세요", fontSize = 12.sp, color = TextSecondary)
+                        Text(
+                            text     = "모든 항목을 입력해주세요",
+                            fontSize = 12.sp,
+                            color    = TextSecondary,
+                        )
+                    }
+
+                    if (uiState.errorMessage != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFFFEBEE))
+                                .padding(12.dp),
+                        ) {
+                            Text(
+                                text     = uiState.errorMessage!!,
+                                fontSize = 13.sp,
+                                color    = Color(0xFFE53935),
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))

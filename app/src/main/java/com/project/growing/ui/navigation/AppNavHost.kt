@@ -234,7 +234,12 @@ fun AppNavHost(
                     },
                 )
             }
-
+            composable(Screen.AddPlant.route) {
+                AddPlantScreen(
+                    onBack   = { navController.popBackStack() },
+                    onSubmit = { navController.popBackStack() },
+                )
+            }
         }
     }
 }
