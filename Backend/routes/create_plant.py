@@ -14,7 +14,7 @@ def predict_model(image: str, model: str):
         model = YOLO("/Users/honggunwoo/Desktop/Growing/Backend/models/rubber_model.pt")
 
     results = model.predict(
-        source=f"/Users/honggunwoo/Desktop/Growing/static/{image}",
+        source=f"{image}",
         imgsz=640,
         conf=0.05,   
         iou=0.5
