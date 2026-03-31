@@ -99,11 +99,11 @@ def get_image(user_id: int):
 
     for row in plants:
         result.append({
-            "plant_id": row[0],
-            "image_url": f"/Users/honggunwoo/Desktop/Growing/static/{row[1]}"
+            "plant_id": row["id"],
+            "image_url": f"/Users/honggunwoo/Desktop/Growing/static/{row["image_url"]}"
         })
-    print(result["image_url"])
-    return FileResponse(result["image_url"])
+    print(result[0]["image_url"])
+    return FileResponse(result)
 
 @router.get("/get_score")
 def get_score(user_id: int, plant_kind: str):
