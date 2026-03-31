@@ -84,7 +84,7 @@ def update_plant(plant_id: int, image: UploadFile, select_model: str):
     return {"filename": filename}
 
 @router.get("/get_plant_image")
-def get_image(plant_id: int, model: str):
+def get_image(plant_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -95,6 +95,25 @@ def get_image(plant_id: int, model: str):
     plant = cursor.fetchone()
     image = f"/Users/honggunwoo/Desktop/Growing/static/{plant['image_url']}"
     print(plant)
-    score = predict_model(image, model)
-    return FileResponse(image), score
+    return FileResponse(image)
+
+@router.get("/get_score")
+def get_score(plant_id: int, plant_kind: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = """
+            select image_url from create_plants where id =%s
+        """
+    cursor.execute(sql, (plant_id,))
+    plant = cursor.fetchone()
+    image = f"/Users/honggunwoo/Desktop/Growing/static/{plant['image_url']}"
+    score = predict_model(image, plant_kind)
+    if score >= 70:
+        status = "좋음"
+    elif score >= 40:
+        status = "보통"
+    else:
+        status = "나쁨"
+    return score, status
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
