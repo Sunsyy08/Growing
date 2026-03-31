@@ -81,7 +81,7 @@ def update_plant(plant_id: int, image: UploadFile, select_model: str):
     finally:
         conn.close()
 
-    return {"filename": filename}
+    return {"filename": filename, "score":score}
 
 @router.get("/get_plant_image")
 def get_image(plant_id: int):
@@ -115,5 +115,5 @@ def get_score(plant_id: int, plant_kind: str):
         status = "보통"
     else:
         status = "나쁨"
-    return score, status
+    return {"점수":score, "상태":status}
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
