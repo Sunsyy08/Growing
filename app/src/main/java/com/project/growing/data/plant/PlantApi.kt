@@ -34,4 +34,9 @@ interface PlantApi {
     suspend fun getPlantScore(
         @Query("plant_id") plantId: Int,
     ): Response<PlantScoreResponse>
+
+    @GET("detail_my_plant")
+    suspend fun getPlantDetail(
+        @Query("plant_id") plantId: Int,
+    ): Response<PlantDetailResponse>
 }

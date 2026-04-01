@@ -36,3 +36,14 @@ data class PlantScoreResponse(
     @SerializedName("점수") val score  : Float?  = null,  // ← 한국어 키
     @SerializedName("상태") val status : String? = null,  // ← 한국어 키
 )
+
+data class PlantDetailResponse(
+    val image        : String? = null,
+    val plant_kind   : String? = null,
+    val plant_location: String? = null,
+    val pot_size     : String? = null,
+    val water_cycle  : String? = null,
+    val sunlight     : String? = null,
+    val score        : Float?  = null,
+    val analysis_ai  : String? = null,
+)

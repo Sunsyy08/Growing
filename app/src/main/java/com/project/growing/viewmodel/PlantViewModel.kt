@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.project.growing.data.local.UserPreferences
+import com.project.growing.data.plant.PlantDetailResponse
 import com.project.growing.data.plant.PlantRepository
 import com.project.growing.util.Result
 import kotlinx.coroutines.async
@@ -40,6 +41,13 @@ data class HomeUiState(
     val errorMessage : String?             = null,
 )
 
+// ── 상세 UI 상태 ──────────────────────────────────────────────
+data class PlantDetailUiState(
+    val isLoading    : Boolean              = false,
+    val detail       : PlantDetailResponse? = null,
+    val errorMessage : String?              = null,
+)
+
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository      = PlantRepository(application.applicationContext)
@@ -53,6 +61,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _homeState = MutableStateFlow(HomeUiState())
     val homeState: StateFlow<HomeUiState> = _homeState.asStateFlow()
+
+    private val _detailState = MutableStateFlow(PlantDetailUiState())
+    val detailState: StateFlow<PlantDetailUiState> = _detailState.asStateFlow()
 
     // ══════════════════════════════════════════════════════════
     // 홈 화면 데이터 로드
@@ -171,6 +182,45 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                 is Result.Loading -> Unit
             }
         }
+    }
+
+    fun loadPlantDetail(plantId: Int) {
+        viewModelScope.launch {
+            _detailState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            // ── 상세 정보 + 점수 병렬 요청 ────────────────────────
+            val detailDeferred = async { repository.getPlantDetail(plantId) }
+            val scoreDeferred  = async { repository.getPlantScore(plantId) }
+
+            val detailResult = detailDeferred.await()
+            val scoreResult  = scoreDeferred.await()
+
+            // get_score에서 점수 가져오기 (홈 화면과 동일)
+            val score = when (scoreResult) {
+                is Result.Success -> scoreResult.data.score?.toInt()
+                else              -> null
+            }
+
+            when (detailResult) {
+                is Result.Success -> {
+                    // score를 get_score 결과로 덮어씌우기
+                    val detail = detailResult.data.copy(
+                        score = score?.toFloat() ?: detailResult.data.score
+                    )
+                    android.util.Log.d("PlantVM", "상세 데이터: $detail score: $score")
+                    _detailState.update { it.copy(isLoading = false, detail = detail) }
+                }
+                is Result.Error -> {
+                    android.util.Log.e("PlantVM", "상세 로드 실패: ${detailResult.message}")
+                    _detailState.update { it.copy(isLoading = false, errorMessage = detailResult.message) }
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
+    fun resetDetailState() {
+        _detailState.update { PlantDetailUiState() }
     }
 
     fun resetState() {

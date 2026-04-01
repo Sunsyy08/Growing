@@ -114,6 +114,25 @@ class PlantRepository(private val context: Context) {
         }
     }
 
+    suspend fun getPlantDetail(plantId: Int): Result<PlantDetailResponse> {
+        return try {
+            val response = api.getPlantDetail(plantId)
+            android.util.Log.d("PlantRepo", "상세 응답[$plantId]: ${response.code()} ${response.body()}")
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) Result.Success(body)
+                else Result.Error("데이터가 없습니다.")
+            } else {
+                val err = response.errorBody()?.string()
+                android.util.Log.e("PlantRepo", "상세 실패[$plantId]: ${response.code()} $err")
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "상세 예외[$plantId]: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
+        }
+    }
+
     private fun parseError(code: Int): String = when (code) {
         400  -> "입력 정보를 확인해주세요."
         401  -> "인증이 필요합니다."

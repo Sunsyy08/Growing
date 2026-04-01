@@ -195,15 +195,16 @@ fun AppNavHost(
             ) { backStackEntry ->
                 val plantId = backStackEntry.arguments
                     ?.getString(Screen.PlantDetail.ARG_PLANT_ID)
-                    ?: return@composable
+                    ?.toIntOrNull() ?: 0
+
+                val plantViewModel: PlantViewModel = viewModel()
 
                 PlantDetailScreen(
-                    plant        = samplePlantDetail,
-                    onBack       = { navController.popBackStack() },
-                    onAiAnalysis = {
-                        navController.navigate(Screen.AiAnalysis.route)  // ← 수정
-                    },
-                    onAskExpert  = { /* TODO */ },
+                    plantId        = plantId,
+                    plantViewModel = plantViewModel,
+                    onBack         = { navController.popBackStack() },
+                    onAiAnalysis   = { navController.navigate(Screen.AiAnalysis.route) },
+                    onAskExpert    = { },
                 )
             }
             // ── 식물 등록 ─────────────────────────────────────────────────
