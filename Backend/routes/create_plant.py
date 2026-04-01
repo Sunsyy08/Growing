@@ -51,7 +51,7 @@ def create_plant(user_id: int, plant_name: str, image: UploadFile, plant_kind: s
     cursor = conn.cursor()
     
     try:
-        sql_insert = "INSERT INTO create_plants (user_id, plant_name, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s)"
+        sql_insert = "INSERT INTO create_plants (user_id, plant_name, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s, %s)"
         cursor.execute(sql_insert, (user_id, plant_name, filename, plant_kind, plant_location, pot_size, water_cycle))
         conn.commit()
     finally:
@@ -142,5 +142,6 @@ def get_score(plant_id: int):
         status = "보통"
     else:
         status = "나쁨"
+    print(score)
     return {"점수":score, "상태":status}
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
