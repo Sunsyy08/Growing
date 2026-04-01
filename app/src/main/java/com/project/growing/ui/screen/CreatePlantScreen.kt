@@ -49,8 +49,8 @@ import java.util.*
 // ── 데이터 ────────────────────────────────────────────────────
 
 private val plantTypes = listOf(
-    "몬스테라", "다육이", "떡갈고무\n나무",
-    "스투키", "산세베리\n아", "알로카시\n아",
+    "몬스테라", "카사바", "떡갈고무\n나무",
+    "고무나무", "산세베리\n아", "알로카시\n아",
     "필로덴드\n론", "스킨답서\n스", "기타",
 )
 
@@ -713,6 +713,7 @@ fun AddPlantScreen(
                         onClick  = {
                             if (isFormValid) {
                                 plantViewModel.registerPlant(
+                                    plantName     = plantName,
                                     plantKind     = selectedType       ?: "",
                                     plantLocation = selectedLoc        ?: "",
                                     potSize       = selectedSize       ?: "",

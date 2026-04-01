@@ -1,93 +1,125 @@
-    package com.project.growing.data.plant
+package com.project.growing.data.plant
 
-    import android.content.Context
-    import android.net.Uri
-    import com.project.growing.network.RetrofitClient
-    import com.project.growing.util.Result
-    import okhttp3.MediaType.Companion.toMediaTypeOrNull
-    import okhttp3.MultipartBody
-    import okhttp3.RequestBody
-    import okhttp3.RequestBody.Companion.toRequestBody
-    import java.io.InputStream
+import android.content.Context
+import android.net.Uri
+import com.project.growing.network.RetrofitClient
+import com.project.growing.util.Result
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
-    class PlantRepository(private val context: Context) {
+class PlantRepository(private val context: Context) {
 
-        private val api = RetrofitClient.create<PlantApi>()
+    private val api = RetrofitClient.create<PlantApi>()
 
-        suspend fun registerPlant(
-            userId        : Int,
-            plantKind     : String,
-            plantLocation : String,
-            potSize       : String,
-            waterCycle    : String,
-            imageUri      : Uri,
-        ): Result<PlantResponse> {
-            return try {
-                // ── form-data 텍스트 필드 생성 ─────────────────────────
-                fun String.toFormBody(): RequestBody =
-                    toRequestBody("text/plain; charset=utf-8".toMediaTypeOrNull())
+    // ── get_plant_image는 FileResponse라 URL 직접 구성 ────────
+    fun getPlantImageUrl(plantId: Int): String =
+        "${RetrofitClient.BASE_URL}get_plant_image?plant_id=$plantId"
 
-                val userIdBody        = userId.toString().toFormBody()
-                val plantKindBody     = plantKind.toFormBody()
-                val plantLocationBody = plantLocation.toFormBody()
-                val potSizeBody       = potSize.toFormBody()
-                val waterCycleBody    = waterCycle.toFormBody()
+    // ── 식물 등록 ──────────────────────────────────────────────
+    suspend fun registerPlant(
+        userId        : Int,
+        plantName     : String,
+        plantKind     : String,
+        plantLocation : String,
+        potSize       : String,
+        waterCycle    : String,
+        imageUri      : Uri,
+    ): Result<PlantResponse> {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+                ?: return Result.Error("이미지를 읽을 수 없습니다.")
 
-                android.util.Log.d("PlantRepo", "=== 식물 등록 요청 ===")
-                android.util.Log.d("PlantRepo", "user_id       : $userId")
-                android.util.Log.d("PlantRepo", "plant_kind    : $plantKind")
-                android.util.Log.d("PlantRepo", "plant_location: $plantLocation")
-                android.util.Log.d("PlantRepo", "pot_size      : $potSize")
-                android.util.Log.d("PlantRepo", "water_cycle   : $waterCycle")
-                android.util.Log.d("PlantRepo", "imageUri      : $imageUri")
+            val imageBytes = inputStream.readBytes()
+            val imageBody  = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+            val imagePart  = MultipartBody.Part.createFormData(
+                name     = "image",
+                filename = "plant_${System.currentTimeMillis()}.jpg",
+                body     = imageBody,
+            )
 
-                // ── 이미지 → MultipartBody.Part ──────────────────────
-                val inputStream = context.contentResolver.openInputStream(imageUri)
-                    ?: return Result.Error("이미지를 읽을 수 없습니다.")
+            android.util.Log.d("PlantRepo", "등록 요청 → user_id=$userId name=$plantName kind=$plantKind")
 
-                val imageBytes = inputStream.readBytes()
-                android.util.Log.d("PlantRepo", "image 크기: ${imageBytes.size} bytes")
+            val response = api.registerPlant(
+                userId        = userId,
+                plantName     = plantName,
+                plantKind     = plantKind,
+                plantLocation = plantLocation,
+                potSize       = potSize,
+                waterCycle    = waterCycle,
+                image         = imagePart,
+            )
 
-                val imageBody  = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
-                val imagePart  = MultipartBody.Part.createFormData(
-                    name     = "image",
-                    filename = "plant_${System.currentTimeMillis()}.jpg",
-                    body     = imageBody,
-                )
-
-                val response = api.registerPlant(
-                    userId        = userId,
-                    plantKind     = plantKind,
-                    plantLocation = plantLocation,
-                    potSize       = potSize,
-                    waterCycle    = waterCycle,
-                    image         = imagePart,
-                )
-
-                android.util.Log.d("PlantRepo", "응답 코드: ${response.code()}")
-
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    android.util.Log.d("PlantRepo", "응답 바디: $body")
-                    if (body != null) Result.Success(body)
-                    else Result.Error("응답 데이터가 없습니다.")
-                } else {
-                    val errorBody = response.errorBody()?.string()
-                    android.util.Log.e("PlantRepo", "에러 코드: ${response.code()}")
-                    android.util.Log.e("PlantRepo", "에러 바디: $errorBody")
-                    Result.Error(parsePlantError(response.code()))
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("PlantRepo", "예외 발생: ${e.message}")
-                Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
+            if (response.isSuccessful) {
+                val body = response.body()
+                android.util.Log.d("PlantRepo", "등록 성공: $body")
+                if (body != null) Result.Success(body)
+                else Result.Error("응답 데이터가 없습니다.")
+            } else {
+                val err = response.errorBody()?.string()
+                android.util.Log.e("PlantRepo", "등록 실패: ${response.code()} $err")
+                Result.Error(parseError(response.code()))
             }
-        }
-
-        private fun parsePlantError(code: Int): String = when (code) {
-            400  -> "입력 정보를 확인해주세요."
-            401  -> "인증이 필요합니다."
-            422 -> "입력값 형식이 올바르지 않습니다."
-            500  -> "서버 오류가 발생했습니다."
-            else -> "오류가 발생했습니다. ($code)"
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "등록 예외: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
         }
     }
+
+    // ── 유저의 식물 ID 목록 ────────────────────────────────────
+    suspend fun getPlantIds(userId: Int): Result<List<Pair<Int, String?>>> {
+        return try {
+            val response = api.getPlantIds(userId)
+            android.util.Log.d("PlantRepo", "식물ID 응답코드: ${response.code()}")
+            android.util.Log.d("PlantRepo", "식물ID 바디: ${response.body()}")
+
+            if (response.isSuccessful) {
+                val list = response.body()
+                    ?.mapNotNull { item ->
+                        val id = item.plant_id ?: return@mapNotNull null
+                        Pair(id, item.plant_kind)
+                    }
+                    ?: emptyList()
+                android.util.Log.d("PlantRepo", "파싱된 목록: $list")
+                Result.Success(list)
+            } else {
+                val err = response.errorBody()?.string()
+                android.util.Log.e("PlantRepo", "식물ID 실패: ${response.code()} $err")
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "식물ID 예외: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
+        }
+    }
+
+    // ── 건강 점수 + 상태 ───────────────────────────────────────
+    suspend fun getPlantScore(plantId: Int): Result<PlantScoreResponse> {
+        return try {
+            val response = api.getPlantScore(plantId)
+            android.util.Log.d("PlantRepo", "점수 응답[$plantId]: ${response.code()} ${response.body()}")
+            if (response.isSuccessful) {
+                val body = response.body()
+                android.util.Log.d("PlantRepo", "점수 바디[$plantId]: $body")
+                if (body != null) Result.Success(body)
+                else Result.Error("점수 데이터가 없습니다.")
+            } else {
+                val err = response.errorBody()?.string()
+                android.util.Log.e("PlantRepo", "점수 실패[$plantId]: ${response.code()} $err")
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "점수 예외[$plantId]: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
+        }
+    }
+
+    private fun parseError(code: Int): String = when (code) {
+        400  -> "입력 정보를 확인해주세요."
+        401  -> "인증이 필요합니다."
+        404  -> "데이터를 찾을 수 없습니다."
+        422  -> "입력값 형식이 올바르지 않습니다."
+        500  -> "서버 오류가 발생했습니다."
+        else -> "오류가 발생했습니다. ($code)"
+    }
+}

@@ -21,13 +21,24 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
 import com.project.growing.ui.theme.*
+import com.project.growing.viewmodel.PlantCardData
+import com.project.growing.viewmodel.PlantViewModel
 
 enum class PlantStatus(
     val label    : String,
@@ -51,6 +62,7 @@ data class PlantUiModel(
     val status      : PlantStatus,
     val memo        : String,
     val imageRes    : Int? = null,
+    val imageUrl    : String? = null,
 )
 
 val samplePlants = listOf(
@@ -66,143 +78,149 @@ val samplePlants = listOf(
 
 @Composable
 fun HomeScreen(
-    onAddPlant : () -> Unit = {},
-    onPlantClick : (String) -> Unit   = {},
+    plantViewModel : PlantViewModel     = viewModel(),
+    onAddPlant   : () -> Unit       = {},
+    onPlantClick : (String) -> Unit = {},
 ) {
-    GrowingTheme {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val plantViewModel : PlantViewModel = viewModel(
+        factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
+            context.applicationContext as android.app.Application
+        )
+    )
+    val homeState by plantViewModel.homeState.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-        // ── 화면 진입 트리거 ───────────────────────────────
+    LaunchedEffect(Unit) {
+        android.util.Log.d("PlantVM", "LaunchedEffect 호출")
+        plantViewModel.loadHomePlants()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                android.util.Log.d("PlantVM", "ON_RESUME 호출")
+                plantViewModel.loadHomePlants()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    GrowingTheme {
         var entered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { entered = true }
 
-        // ── 헤더 슬라이드 다운 + 페이드인 ─────────────────
         val headerTranslateY by animateFloatAsState(
             targetValue   = if (entered) 0f else -120f,
-            animationSpec = tween(
-                durationMillis = 550,
-                easing         = EaseOutCubic,
-            ),
-            label = "header_ty",
+            animationSpec = tween(550, easing = EaseOutCubic),
+            label         = "header_ty",
         )
         val headerAlpha by animateFloatAsState(
             targetValue   = if (entered) 1f else 0f,
-            animationSpec = tween(durationMillis = 450, easing = EaseOutCubic),
+            animationSpec = tween(450, easing = EaseOutCubic),
             label         = "header_alpha",
         )
-
-        // ── 콘텐츠 페이드인 (헤더보다 살짝 늦게) ──────────
         val contentAlpha by animateFloatAsState(
             targetValue   = if (entered) 1f else 0f,
-            animationSpec = tween(durationMillis = 500, delayMillis = 200, easing = EaseOutCubic),
+            animationSpec = tween(500, delayMillis = 200, easing = EaseOutCubic),
             label         = "content_alpha",
         )
-
-        // ── FAB 스케일 (튀어오르기) ────────────────────────
         val fabScale by animateFloatAsState(
             targetValue   = if (entered) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness    = Spring.StiffnessMedium,
-            ),
-            label = "fab_scale",
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+            label         = "fab_scale",
         )
 
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFEEF6F1))
+            modifier = Modifier.fillMaxSize().background(Color(0xFFEEF6F1))
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
-                // ── 상단 헤더 (슬라이드 다운) ──────────────
+                // ── 헤더 ──────────────────────────────────────
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .graphicsLayer {
-                            translationY = headerTranslateY
-                            alpha        = headerAlpha
-                        }
-                        .shadow(
-                            elevation    = 10.dp,
-                            shape        = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
+                        .graphicsLayer { translationY = headerTranslateY; alpha = headerAlpha }
+                        .shadow(10.dp, RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
                             ambientColor = Color(0xFF43A967).copy(alpha = 0.25f),
-                            spotColor    = Color(0xFF2E7D32).copy(alpha = 0.25f),
-                        )
+                            spotColor    = Color(0xFF2E7D32).copy(alpha = 0.25f))
                         .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFF2E7D32),
-                                    Color(0xFF43A967),
-                                    Color(0xFF66BB7A),
-                                )
-                            )
-                        )
-                        .padding(
-                            start  = 24.dp,
-                            end    = 24.dp,
-                            top    = 48.dp,
-                            bottom = 20.dp,
-                        )
+                        .background(Brush.verticalGradient(listOf(Color(0xFF2E7D32), Color(0xFF43A967), Color(0xFF66BB7A))))
+                        .statusBarsPadding()
+                        .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 20.dp)
                 ) {
                     Column {
-                        Text(
-                            text          = "안녕하세요 👋",
-                            fontSize      = 22.sp,
-                            fontWeight    = FontWeight.Bold,
-                            color         = White,
-                            letterSpacing = (-0.3).sp,
-                        )
+                        Text("안녕하세요 👋", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = White, letterSpacing = (-0.3).sp)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text     = "오늘도 식물을 잘 돌보고 있어요 🌿",
-                            fontSize = 13.sp,
-                            color    = White.copy(alpha = 0.88f),
-                        )
+                        Text("오늘도 식물을 잘 돌보고 있어요 🌿", fontSize = 13.sp, color = White.copy(alpha = 0.88f))
                     }
                 }
 
-                // ── 스크롤 영역 (페이드인) ─────────────────
+                // ── 스크롤 영역 ───────────────────────────────
                 LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .graphicsLayer { alpha = contentAlpha },
+                    modifier       = Modifier.weight(1f).graphicsLayer { alpha = contentAlpha },
                     contentPadding = PaddingValues(top = 18.dp, bottom = 24.dp),
                 ) {
                     item {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 22.dp, end = 22.dp, bottom = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, bottom = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment     = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text          = "내 식물들",
-                                fontSize      = 17.sp,
-                                fontWeight    = FontWeight.Bold,
-                                color         = TextPrimary,
-                                letterSpacing = (-0.2).sp,
-                            )
-                            Text(
-                                text     = "${samplePlants.size}개",
-                                fontSize = 13.sp,
-                                color    = TextSecondary,
-                            )
+                            Text("내 식물들", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary, letterSpacing = (-0.2).sp)
+                            Text("${homeState.plants.size}개", fontSize = 13.sp, color = TextSecondary)
                         }
                     }
 
-                    items(samplePlants) { plant ->
+                    // ── 로딩 ────────────────────────────────
+                    if (homeState.isLoading) {
+                        item {
+                            Box(
+                                modifier         = Modifier.fillMaxWidth().padding(32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(color = Color(0xFF43A967))
+                            }
+                        }
+                    }
+
+                    // ── 식물 없을 때 ─────────────────────────
+                    if (!homeState.isLoading && homeState.plants.isEmpty()) {
+                        item {
+                            Box(
+                                modifier         = Modifier.fillMaxWidth().padding(32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(text = "🌱", fontSize = 48.sp)
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text       = "등록된 식물이 없어요\n+ 버튼으로 추가해보세요",
+                                        fontSize   = 14.sp,
+                                        color      = TextSecondary,
+                                        textAlign  = TextAlign.Center,
+                                        lineHeight = 20.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // ── 식물 카드 목록 ───────────────────────
+                    items(homeState.plants) { plant ->
                         PlantCard(
-                            plant    = plant,
-                            onClick  = { onPlantClick(plant.id) },
+                            plant    = plant.toPlantUiModel(),
+                            onClick  = { onPlantClick(plant.plantId.toString()) },
                             modifier = Modifier.padding(horizontal = 22.dp, vertical = 7.dp),
                         )
                     }
                 }
             }
 
-            // ── FAB (튀어오르기 + 아래로 이동) ────────────
+            // ── FAB ───────────────────────────────────────────
             FloatingActionButton(
                 onClick        = onAddPlant,
                 containerColor = Color(0xFF43A967),
@@ -210,24 +228,36 @@ fun HomeScreen(
                 shape          = CircleShape,
                 modifier       = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 16.dp)   // 80 → 96 (더 아래로)
+                    .padding(end = 22.dp, bottom = 16.dp)
                     .size(52.dp)
                     .graphicsLayer { scaleX = fabScale; scaleY = fabScale }
-                    .shadow(
-                        elevation    = 14.dp,
-                        shape        = CircleShape,
+                    .shadow(14.dp, CircleShape,
                         ambientColor = Color(0xFF43A967).copy(alpha = 0.45f),
-                        spotColor    = Color(0xFF2E7D32).copy(alpha = 0.45f),
-                    ),
+                        spotColor    = Color(0xFF2E7D32).copy(alpha = 0.45f)),
             ) {
-                Icon(
-                    imageVector        = Icons.Rounded.Add,
-                    contentDescription = "식물 추가",
-                    modifier           = Modifier.size(24.dp),
-                )
+                Icon(Icons.Rounded.Add, contentDescription = "식물 추가", modifier = Modifier.size(24.dp))
             }
         }
     }
+}
+
+// ── PlantCardData → PlantUiModel 변환 ────────────────────────
+fun PlantCardData.toPlantUiModel(): PlantUiModel {
+    val plantStatus = when (status) {
+        "좋음" -> PlantStatus.GOOD
+        "보통" -> PlantStatus.NORMAL
+        "나쁨" -> PlantStatus.DANGER
+        else   -> PlantStatus.NORMAL
+    }
+    return PlantUiModel(
+        id          = plantId.toString(),
+        name        = plantKind ?: "",   // ← plant_kind 표시
+        healthScore = score ?: 0,
+        nextWater   = "",
+        status      = plantStatus,
+        memo        = "",
+        imageUrl    = imageUrl,
+    )
 }
 
 // ── 식물 카드 ─────────────────────────────────────────────────
@@ -277,16 +307,21 @@ fun PlantCard(
                     modifier = Modifier
                         .size(80.dp)
                         .align(Alignment.BottomStart)
-                        .shadow(
-                            elevation    = 2.dp,
-                            shape        = RoundedCornerShape(14.dp),
-                            ambientColor = Color(0x0A000000),
-                        )
+                        .shadow(2.dp, RoundedCornerShape(14.dp))
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFFDFF2E6)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = "🪴", fontSize = 32.sp)
+                    if (plant.imageUrl != null) {
+                        AsyncImage(
+                            model              = plant.imageUrl,
+                            contentDescription = plant.name,
+                            contentScale       = ContentScale.Crop,
+                            modifier           = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)),
+                        )
+                    } else {
+                        Text(text = "🪴", fontSize = 32.sp)
+                    }
                 }
 
                 Box(
@@ -311,18 +346,24 @@ fun PlantCard(
             Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
+
+                // 이름 + 상태 뱃지 Row
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.SpaceBetween,  // ← 양끝 정렬
                     verticalAlignment     = Alignment.CenterVertically,
                 ) {
+                    // 왼쪽: 식물 종류
                     Text(
-                        text          = plant.name,
+                        text          = plant.name.ifEmpty { "식물" },
                         fontSize      = 15.sp,
                         fontWeight    = FontWeight.Bold,
                         color         = TextPrimary,
                         letterSpacing = (-0.2).sp,
+                        modifier      = Modifier.weight(1f),  // ← 남은 공간 차지
                     )
+
+                    // 오른쪽 끝: 상태 뱃지
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
@@ -340,6 +381,7 @@ fun PlantCard(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // 건강 점수
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -355,7 +397,7 @@ fun PlantCard(
 
                 Spacer(modifier = Modifier.height(5.dp))
 
-                // ── 건강 점수 바 (애니메이션) ────────────────
+                // 건강 점수 바
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -365,7 +407,7 @@ fun PlantCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(animatedProgress)   // ← 애니메이션 적용
+                            .fillMaxWidth(animatedProgress)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(50))
                             .background(
@@ -379,34 +421,37 @@ fun PlantCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector        = Icons.Rounded.WaterDrop,
-                        contentDescription = null,
-                        tint               = Color(0xFF64B5F6),
-                        modifier           = Modifier.size(12.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = plant.nextWater, fontSize = 12.sp, color = TextSecondary)
+                // 물주기, 메모 — 비어있으면 숨김
+                if (plant.nextWater.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector        = Icons.Rounded.WaterDrop,
+                            contentDescription = null,
+                            tint               = Color(0xFF64B5F6),
+                            modifier           = Modifier.size(12.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = plant.nextWater, fontSize = 12.sp, color = TextSecondary)
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(plant.status.badgeBg)
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                ) {
-                    Text(
-                        text       = plant.memo,
-                        fontSize   = 12.sp,
-                        color      = plant.status.color,
-                        fontWeight = FontWeight.Medium,
-                    )
+                if (plant.memo.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(plant.status.badgeBg)
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                    ) {
+                        Text(
+                            text       = plant.memo,
+                            fontSize   = 12.sp,
+                            color      = plant.status.color,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
         }

@@ -20,8 +20,10 @@ import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
 import com.project.growing.ui.screen.*
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.growing.viewmodel.AuthViewModel
+import com.project.growing.viewmodel.PlantViewModel
 
 
 // ── 바텀바가 보여야 하는 라우트 목록 ──────────────────────────
@@ -139,11 +141,16 @@ fun AppNavHost(
 
             // ── 홈 ────────────────────────────────────────
             composable(Screen.Home.route) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val plantViewModel: PlantViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
+                        context.applicationContext as android.app.Application
+                    )
+                )
                 HomeScreen(
-                    onPlantClick = { plantId ->
-                        navController.navigate(
-                            Screen.PlantDetail.createRoute(plantId)
-                        )
+                    plantViewModel = plantViewModel,  // ← ViewModel 주입
+                    onPlantClick   = { plantId ->
+                        navController.navigate(Screen.PlantDetail.createRoute(plantId))
                     },
                     onAddPlant = {
                         navController.navigate(Screen.AddPlant.route)
