@@ -57,4 +57,14 @@ interface PlantApi {
     suspend fun drawGraph(
         @Query("plant_id") plantId: Int,
     ): Response<List<GraphPointDto>>
+
+    @GET("get_all_image_url")
+    suspend fun getAllImageUrls(
+        @Query("user_id") userId: Int,
+    ): Response<List<RecentImageDto>>
+
+    @GET("get_all_score")
+    suspend fun getAllScore(
+        @Query("user_id") userId: Int,
+    ): Response<RecentScoreResponse>
 }

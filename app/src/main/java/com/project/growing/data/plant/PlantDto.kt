@@ -63,3 +63,14 @@ data class GraphPointDto(
     @SerializedName("점수") val score : Float?  = null,
     @SerializedName("날짜") val date  : String? = null,
 )
+
+data class RecentImageDto(
+    val image_url : String? = null,
+)
+
+data class RecentScoreResponse(
+    @SerializedName("점수") val score  : Float?  = null,
+    @SerializedName("상태") val status : String? = null,
+    @SerializedName("종류") val kind   : String? = null,
+    @SerializedName("이름") val name   : String? = null,
+)

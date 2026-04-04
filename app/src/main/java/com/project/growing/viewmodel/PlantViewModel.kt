@@ -66,6 +66,17 @@ data class RecordUiState(
     val errorMessage : String?          = null,
 )
 
+// ── 최근 기록 UI 상태 ─────────────────────────────────────────
+data class RecentRecordUiState(
+    val isLoading  : Boolean             = false,
+    val imageUrls  : List<String>        = emptyList(),  // 실제 이미지 URL
+    val score      : Int?                = null,
+    val status     : String?             = null,
+    val plantName  : String?             = null,
+    val plantKind  : String?             = null,
+    val errorMessage: String?            = null,
+)
+
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository      = PlantRepository(application.applicationContext)
@@ -88,6 +99,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _recordState = MutableStateFlow(RecordUiState())
     val recordState: StateFlow<RecordUiState> = _recordState.asStateFlow()
+
+    private val _recentState = MutableStateFlow(RecentRecordUiState())
+    val recentState: StateFlow<RecentRecordUiState> = _recentState.asStateFlow()
 
     // ══════════════════════════════════════════════════════════
     // 홈 화면 데이터 로드
@@ -319,6 +333,46 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                     _recordState.update { it.copy(isLoading = false, errorMessage = result.message) }
                 }
                 is Result.Loading -> Unit
+            }
+        }
+    }
+
+    fun loadRecentRecords() {
+        viewModelScope.launch {
+            val userId = userPreferences.userId.first()?.toIntOrNull()
+                ?: return@launch
+
+            _recentState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            // ── 이미지 목록 + 점수 병렬 요청 ─────────────────────
+            val imageDeferred = async { repository.getRecentImageUrls(userId) }
+            val scoreDeferred = async { repository.getRecentScore(userId) }
+
+            val imageResult = imageDeferred.await()
+            val scoreResult = scoreDeferred.await()
+
+            val imageUrls = when (imageResult) {
+                is Result.Success -> imageResult.data.mapNotNull { it.image_url }
+                    .map { repository.getRecentImageUrl(it) }
+                else -> emptyList()
+            }
+
+            val score     = when (scoreResult) { is Result.Success -> scoreResult.data.score?.toInt() else -> null }
+            val status    = when (scoreResult) { is Result.Success -> scoreResult.data.status else -> null }
+            val plantName = when (scoreResult) { is Result.Success -> scoreResult.data.name else -> null }
+            val plantKind = when (scoreResult) { is Result.Success -> scoreResult.data.kind else -> null }
+
+            android.util.Log.d("PlantVM", "최근기록 imageUrls=$imageUrls score=$score status=$status")
+
+            _recentState.update {
+                it.copy(
+                    isLoading  = false,
+                    imageUrls  = imageUrls,
+                    score      = score,
+                    status     = status,
+                    plantName  = plantName,
+                    plantKind  = plantKind,
+                )
             }
         }
     }

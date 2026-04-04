@@ -218,6 +218,44 @@ class PlantRepository(private val context: Context) {
         }
     }
 
+    // ── 최근 이미지 URL 목록 ──────────────────────────────────────
+    suspend fun getRecentImageUrls(userId: Int): Result<List<RecentImageDto>> {
+        return try {
+            val response = api.getAllImageUrls(userId)
+            android.util.Log.d("PlantRepo", "최근이미지 응답: ${response.code()} ${response.body()}")
+            if (response.isSuccessful) {
+                Result.Success(response.body() ?: emptyList())
+            } else {
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "최근이미지 예외: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류")
+        }
+    }
+
+    // ── 최근 식물 점수/상태 ───────────────────────────────────────
+    suspend fun getRecentScore(userId: Int): Result<RecentScoreResponse> {
+        return try {
+            val response = api.getAllScore(userId)
+            android.util.Log.d("PlantRepo", "최근점수 응답: ${response.code()} ${response.body()}")
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) Result.Success(body)
+                else Result.Error("데이터가 없습니다.")
+            } else {
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "최근점수 예외: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류")
+        }
+    }
+
+    // ── 이미지 URL 구성 ───────────────────────────────────────────
+    fun getRecentImageUrl(imageUrl: String): String =
+        "${RetrofitClient.BASE_URL}get_all_image?image_url=$imageUrl"
+
     private fun parseError(code: Int): String = when (code) {
         400  -> "입력 정보를 확인해주세요."
         401  -> "인증이 필요합니다."
