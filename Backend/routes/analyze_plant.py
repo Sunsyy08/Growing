@@ -18,10 +18,10 @@ ANALYZE_PROMPT = """
 
 {
   "score": 0~100 사이 정수 (식물 건강 점수),
-  "state_description": "식물 전체 상태 한 줄 설명",
+  "state_description": "식물 전체 상태 설명 (2문장으로 작성)",
   "sunlight_status": "햇빛 상태 (적절 / 부족 / 과다 중 하나)",
   "air_circulation": "공기 순환 상태 (양호 / 보통 / 불량 중 하나)",
-  "health_prediction": "앞으로의 건강 예측 한 줄"
+  "health_prediction": "앞으로의 건강 예측 (2문장으로 작성)"
 }
 
 JSON 외에 다른 말은 절대 하지 마.

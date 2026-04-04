@@ -176,7 +176,7 @@ def draw_graph(plant_id: int):
     cursor = conn.cursor()
     
     sql = """
-            SELECT score, created_at FROM plant_state ORDER BY created_at ASC;
+            SELECT score, created_at FROM plant_state WHERE create_plant_id = %s ORDER BY created_at ASC;
         """
     cursor.execute(sql, (plant_id,))
     plants = cursor.fetchall()
