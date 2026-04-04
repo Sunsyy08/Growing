@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routes import auth, my_plant, detail_my_plant, profile, plant_question, plant_updates, create_plant, consult, ai_analysis
+from routes import auth, my_plant, detail_my_plant, profile, plant_question, plant_updates, create_plant, consult, ai_analysis, detail_my_analysisd, analyze_plant
 import uvicorn
 
 app = FastAPI(title="Growing Project")
@@ -14,6 +14,8 @@ app.include_router(plant_updates.router)
 app.include_router(create_plant.router)
 app.include_router(consult.router)
 app.include_router(ai_analysis.router)
+app.include_router(detail_my_analysisd.router)
+app.include_router(analyze_plant.router)
 
 @app.get("/")
 def root():
