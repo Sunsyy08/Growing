@@ -191,7 +191,7 @@ def draw_graph(plant_id: int):
 
     return result
 
-@router.get("/get_plant_image")
+@router.get("/get_plant_all_image")
 def get_image(user_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
