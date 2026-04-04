@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,8 +45,6 @@ import com.project.growing.viewmodel.PlantViewModel
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-
-// ── 샘플 데이터 ───────────────────────────────────────────────
 
 data class PlantDetailUiModel(
     val name         : String,
@@ -77,26 +74,34 @@ val samplePlantDetail = PlantDetailUiModel(
     humidity     = "65%",
 )
 
-// ── PlantDetailScreen ─────────────────────────────────────────
-
 @Composable
 fun PlantDetailScreen(
-    plantId        : Int            = 0,              // ← 추가
-    plantViewModel : PlantViewModel = viewModel(),    // ← 추가
+    plantId        : Int            = 0,
+    plantViewModel : PlantViewModel = viewModel(),
     onBack         : () -> Unit     = {},
     onAiAnalysis   : () -> Unit     = {},
     onAskExpert    : () -> Unit     = {},
 ) {
     GrowingTheme {
-        val context = LocalContext.current
+        val context     = LocalContext.current
         val detailState by plantViewModel.detailState.collectAsStateWithLifecycle()
+        val updateState by plantViewModel.updateState.collectAsStateWithLifecycle()  // ← 추가
 
-        // ── 화면 진입 시 데이터 로드 ──────────────────────
+        // plant_kind 가져오기 (모델 선택에 필요)
+        val plantKind = detailState.detail?.plant_kind ?: ""
+
+        // ── 화면 진입 시 데이터 로드 ──────────────────────────
         LaunchedEffect(plantId) {
             if (plantId > 0) plantViewModel.loadPlantDetail(plantId)
         }
 
-        // ── 실제 데이터로 UiModel 구성 ────────────────────
+        // ── 업데이트 성공 시 초기화 ───────────────────────────
+        LaunchedEffect(updateState.isSuccess) {
+            if (updateState.isSuccess) {
+                plantViewModel.resetUpdateState()
+            }
+        }
+
         val plant = detailState.detail?.let { d ->
             PlantDetailUiModel(
                 name         = d.plant_kind      ?: "내 식물",
@@ -113,12 +118,11 @@ fun PlantDetailScreen(
             )
         } ?: samplePlantDetail
 
-        // ── 이미지 URL ────────────────────────────────────
         val imageUrl = if (plantId > 0)
             "${RetrofitClient.BASE_URL}get_plant_image?plant_id=$plantId"
         else null
 
-        // ── 카메라 관련 ───────────────────────────────────
+        // ── 카메라 관련 ───────────────────────────────────────
         var capturedUri by remember { mutableStateOf<Uri?>(null) }
         var tempUri     by remember { mutableStateOf<Uri?>(null) }
 
@@ -128,19 +132,36 @@ fun PlantDetailScreen(
             return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
         }
 
-        val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-            if (success && tempUri != null) capturedUri = tempUri
+        // ── 사진 찍히면 바로 업데이트 API 호출 ────────────────
+        val cameraLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture()
+        ) { success ->
+            if (success && tempUri != null) {
+                capturedUri = tempUri
+                plantViewModel.updatePlant(
+                    plantId   = plantId,
+                    plantKind = plantKind,
+                    imageUri  = tempUri!!,
+                )
+            }
         }
-        val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) { val uri = createTempImageUri(); tempUri = uri; cameraLauncher.launch(uri) }
+
+        val permissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                val uri = createTempImageUri(); tempUri = uri; cameraLauncher.launch(uri)
+            }
         }
+
         fun launchCamera() {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
                 val uri = createTempImageUri(); tempUri = uri; cameraLauncher.launch(uri)
             } else permissionLauncher.launch(Manifest.permission.CAMERA)
         }
 
-        // ── 로딩 중 ───────────────────────────────────────
         if (detailState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Color(0xFF43A967))
@@ -148,7 +169,6 @@ fun PlantDetailScreen(
             return@GrowingTheme
         }
 
-        // ── 애니메이션 ────────────────────────────────────
         var entered by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { entered = true }
 
@@ -197,7 +217,7 @@ fun PlantDetailScreen(
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F7F5))) {
             Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
 
-                // ── 상단 이미지 영역 ───────────────────────
+                // ── 상단 이미지 영역 ───────────────────────────
                 Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
                     Box(
                         modifier = Modifier.fillMaxSize().background(
@@ -205,7 +225,6 @@ fun PlantDetailScreen(
                         ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        // ── 실제 이미지 ──────────────────────
                         if (imageUrl != null) {
                             AsyncImage(
                                 model              = imageUrl,
@@ -234,7 +253,7 @@ fun PlantDetailScreen(
                     }
                 }
 
-                // ── 식물 정보 카드 ─────────────────────────
+                // ── 식물 정보 카드 ─────────────────────────────
                 Box(
                     modifier = Modifier.padding(horizontal = 20.dp).offset(y = (-16).dp)
                         .shadow(10.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x1443A967), spotColor = Color(0x1443A967))
@@ -259,7 +278,7 @@ fun PlantDetailScreen(
                     }
                 }
 
-                // ── 건강 점수 카드 ─────────────────────────
+                // ── 건강 점수 카드 ─────────────────────────────
                 DetailCard(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("건강 점수", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -293,7 +312,7 @@ fun PlantDetailScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ── 물주기 / 햇빛 카드 ────────────────────
+                // ── 물주기 / 햇빛 카드 ────────────────────────
                 Row(modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
                         modifier = Modifier.weight(1f)
@@ -340,7 +359,7 @@ fun PlantDetailScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // ── 환경 정보 카드 ─────────────────────────
+                // ── 환경 정보 카드 ─────────────────────────────
                 DetailCard(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("환경 정보", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -354,10 +373,10 @@ fun PlantDetailScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
-                    onClick = onAiAnalysis,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A967)),
+                    onClick   = onAiAnalysis,
+                    modifier  = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp),
+                    shape     = RoundedCornerShape(14.dp),
+                    colors    = ButtonDefaults.buttonColors(containerColor = Color(0xFF43A967)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                 ) {
                     Text("🌿", fontSize = 16.sp)
@@ -368,11 +387,11 @@ fun PlantDetailScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedButton(
-                    onClick = onAskExpert,
+                    onClick  = onAskExpert,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDDDDD)),
+                    shape    = RoundedCornerShape(14.dp),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDDDDD)),
                 ) {
                     Icon(Icons.Rounded.ChatBubbleOutline, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -381,30 +400,56 @@ fun PlantDetailScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // ── 식물 업데이트 버튼 ─────────────────────────
                 Button(
-                    onClick = { launchCamera() },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp)
-                        .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0xFF1565C0).copy(alpha = 0.3f), spotColor = Color(0xFF1565C0).copy(alpha = 0.3f)),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                    onClick  = { launchCamera() },
+                    enabled  = !updateState.isLoading,  // ← 로딩 중 비활성화
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .height(52.dp)
+                        .shadow(8.dp, RoundedCornerShape(14.dp),
+                            ambientColor = Color(0xFF1565C0).copy(alpha = 0.3f),
+                            spotColor    = Color(0xFF1565C0).copy(alpha = 0.3f)),
+                    shape     = RoundedCornerShape(14.dp),
+                    colors    = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                 ) {
-                    Icon(Icons.Rounded.CameraAlt, null, tint = White, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("식물 업데이트", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = White)
+                    if (updateState.isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("업데이트 중...", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = White)
+                    } else {
+                        Icon(Icons.Rounded.CameraAlt, null, tint = White, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("식물 업데이트", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = White)
+                    }
                 }
 
-                if (capturedUri != null) {
+                // ── 업데이트 결과 표시 ─────────────────────────
+                if (updateState.isSuccess) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                            .clip(RoundedCornerShape(12.dp)).background(Color(0xFFE3F2FD)).padding(12.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFE8F5E9)).padding(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF1976D2), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF43A967), modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("사진이 저장되었어요! 서버 연결 후 업로드됩니다.", fontSize = 12.sp, color = Color(0xFF1565C0))
+                            Text("업데이트 완료! 점수가 갱신되었어요.", fontSize = 12.sp, color = Color(0xFF2E7D32))
                         }
+                    }
+                }
+
+                if (updateState.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFEBEE)).padding(12.dp)
+                    ) {
+                        Text(updateState.errorMessage!!, fontSize = 12.sp, color = Color(0xFFE53935))
                     }
                 }
 
@@ -413,8 +458,6 @@ fun PlantDetailScreen(
         }
     }
 }
-
-// ── 공용 컴포저블 ─────────────────────────────────────────────
 
 @Composable
 fun DetailCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -449,7 +492,6 @@ fun CircularHealthIndicator(
         val strokePx = stroke.toPx()
         val padding  = strokePx / 2f
         val diameter = this.size.minDimension - strokePx
-
         drawArc(
             color      = trackColor,
             startAngle = -90f,

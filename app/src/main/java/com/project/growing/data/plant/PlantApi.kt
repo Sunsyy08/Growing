@@ -39,4 +39,12 @@ interface PlantApi {
     suspend fun getPlantDetail(
         @Query("plant_id") plantId: Int,
     ): Response<PlantDetailResponse>
+
+    @Multipart
+    @POST("update_plant")
+    suspend fun updatePlant(
+        @Query("plant_id")     plantId     : Int,
+        @Query("select_model") selectModel : String,
+        @Part                  image       : MultipartBody.Part,
+    ): Response<PlantResponse>
 }

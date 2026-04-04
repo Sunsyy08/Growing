@@ -251,7 +251,7 @@ fun PlantCardData.toPlantUiModel(): PlantUiModel {
     }
     return PlantUiModel(
         id          = plantId.toString(),
-        name        = plantKind ?: "",   // ← plant_kind 표시
+        name        = plantName ?: plantKind ?: "내 식물",  // 이름 우선, 없으면 종류
         healthScore = score ?: 0,
         nextWater   = "",
         status      = plantStatus,

@@ -33,8 +33,10 @@ data class PlantIdItemDto(
 // ────────── 건강 점수 ──────────
 
 data class PlantScoreResponse(
-    @SerializedName("점수") val score  : Float?  = null,  // ← 한국어 키
-    @SerializedName("상태") val status : String? = null,  // ← 한국어 키
+    @SerializedName("점수") val score  : Float?  = null,
+    @SerializedName("상태") val status : String? = null,
+    @SerializedName("종류") val kind   : String? = null,
+    @SerializedName("이름") val name   : String? = null,
 )
 
 data class PlantDetailResponse(

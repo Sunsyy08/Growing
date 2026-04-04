@@ -17,35 +17,37 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// ── 홈 화면 식물 카드 데이터 ──────────────────────────────────
 data class PlantCardData(
     val plantId   : Int,
-    val plantName : String?,   // ← 등록 시 받은 이름
+    val plantName : String?,
     val plantKind : String?,
     val imageUrl  : String?,
     val score     : Int?,
-    val status    : String?,   // "좋음" | "보통" | "나쁨"
+    val status    : String?,
 )
 
-// ── 식물 등록 UI 상태 ─────────────────────────────────────────
 data class AddPlantUiState(
     val isLoading    : Boolean = false,
     val isSuccess    : Boolean = false,
     val errorMessage : String? = null,
 )
 
-// ── 홈 화면 UI 상태 ───────────────────────────────────────────
 data class HomeUiState(
     val isLoading    : Boolean             = false,
     val plants       : List<PlantCardData> = emptyList(),
     val errorMessage : String?             = null,
 )
 
-// ── 상세 UI 상태 ──────────────────────────────────────────────
 data class PlantDetailUiState(
     val isLoading    : Boolean              = false,
     val detail       : PlantDetailResponse? = null,
     val errorMessage : String?              = null,
+)
+// ── 업데이트 UI 상태 추가 ─────────────────────────────────────
+data class UpdatePlantUiState(
+    val isLoading    : Boolean = false,
+    val isSuccess    : Boolean = false,
+    val errorMessage : String? = null,
 )
 
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
@@ -53,17 +55,17 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     private val repository      = PlantRepository(application.applicationContext)
     private val userPreferences = UserPreferences(application.applicationContext)
 
-    // ── 등록된 식물 이름 임시 저장 (plant_id → plant_name) ────
-    private val plantNameCache = mutableMapOf<Int, String>()
-
-    private val _addState  = MutableStateFlow(AddPlantUiState())
+    private val _addState    = MutableStateFlow(AddPlantUiState())
     val uiState: StateFlow<AddPlantUiState> = _addState.asStateFlow()
 
-    private val _homeState = MutableStateFlow(HomeUiState())
+    private val _homeState   = MutableStateFlow(HomeUiState())
     val homeState: StateFlow<HomeUiState> = _homeState.asStateFlow()
 
     private val _detailState = MutableStateFlow(PlantDetailUiState())
     val detailState: StateFlow<PlantDetailUiState> = _detailState.asStateFlow()
+
+    private val _updateState = MutableStateFlow(UpdatePlantUiState())
+    val updateState: StateFlow<UpdatePlantUiState> = _updateState.asStateFlow()
 
     // ══════════════════════════════════════════════════════════
     // 홈 화면 데이터 로드
@@ -80,37 +82,42 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
             when (val idsResult = repository.getPlantIds(userId)) {
                 is Result.Success -> {
-                    // ── List<Pair<Int, String?>> 로 받음 ──────────
-                    val pairs: List<Pair<Int, String?>> = idsResult.data
-                    android.util.Log.d("PlantVM", "식물 목록: $pairs")
+                    val plantIds: List<Int> = idsResult.data
+                    android.util.Log.d("PlantVM", "식물 ID 목록: $plantIds")
 
-                    if (pairs.isEmpty()) {
+                    if (plantIds.isEmpty()) {
                         _homeState.update { it.copy(isLoading = false, plants = emptyList()) }
                         return@launch
                     }
 
-                    val plantCards = pairs.map { pair ->
+                    val plantCards = plantIds.map { plantId ->
                         async {
-                            val plantId   = pair.first
-                            val plantKind = pair.second
-
                             val scoreResult = repository.getPlantScore(plantId)
                             val imageUrl    = repository.getPlantImageUrl(plantId)
 
-                            val score  = when (scoreResult) {
+                            val score     = when (scoreResult) {
                                 is Result.Success -> scoreResult.data.score?.toInt()
                                 else              -> null
                             }
-                            val status = when (scoreResult) {
+                            val status    = when (scoreResult) {
                                 is Result.Success -> scoreResult.data.status
                                 else              -> null
                             }
+                            // ── get_score에서 종류, 이름 받아옴 ──────
+                            val plantKind = when (scoreResult) {
+                                is Result.Success -> scoreResult.data.kind
+                                else              -> null
+                            }
+                            val plantName = when (scoreResult) {
+                                is Result.Success -> scoreResult.data.name
+                                else              -> null
+                            }
 
-                            android.util.Log.d("PlantVM", "plantId=$plantId kind=$plantKind score=$score status=$status")
+                            android.util.Log.d("PlantVM", "plantId=$plantId name=$plantName kind=$plantKind score=$score status=$status")
 
                             PlantCardData(
                                 plantId   = plantId,
-                                plantName = plantNameCache[plantId],
+                                plantName = plantName,
                                 plantKind = plantKind,
                                 imageUrl  = imageUrl,
                                 score     = score,
@@ -135,7 +142,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
     // 식물 등록
     // ══════════════════════════════════════════════════════════
     fun registerPlant(
-        plantName     : String,  // ← 추가
+        plantName     : String,
         plantKind     : String,
         plantLocation : String,
         potSize       : String,
@@ -166,13 +173,7 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                 imageUri      = imageUri,
             )) {
                 is Result.Success -> {
-                    // ── 등록된 plant_id와 plant_name 캐시에 저장 ──
-                    val plantId = result.data.plant_id
-                        ?: result.data.plant?.plant_id
-                    if (plantId != null) {
-                        plantNameCache[plantId] = plantName
-                        android.util.Log.d("PlantVM", "캐시 저장: $plantId → $plantName")
-                    }
+                    android.util.Log.d("PlantVM", "등록 성공: ${result.data}")
                     _addState.update { it.copy(isLoading = false, isSuccess = true) }
                     loadHomePlants()
                 }
@@ -184,18 +185,19 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ══════════════════════════════════════════════════════════
+    // 식물 상세
+    // ══════════════════════════════════════════════════════════
     fun loadPlantDetail(plantId: Int) {
         viewModelScope.launch {
             _detailState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            // ── 상세 정보 + 점수 병렬 요청 ────────────────────────
             val detailDeferred = async { repository.getPlantDetail(plantId) }
             val scoreDeferred  = async { repository.getPlantScore(plantId) }
 
             val detailResult = detailDeferred.await()
             val scoreResult  = scoreDeferred.await()
 
-            // get_score에서 점수 가져오기 (홈 화면과 동일)
             val score = when (scoreResult) {
                 is Result.Success -> scoreResult.data.score?.toInt()
                 else              -> null
@@ -203,7 +205,6 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
             when (detailResult) {
                 is Result.Success -> {
-                    // score를 get_score 결과로 덮어씌우기
                     val detail = detailResult.data.copy(
                         score = score?.toFloat() ?: detailResult.data.score
                     )
@@ -219,9 +220,38 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun resetDetailState() {
-        _detailState.update { PlantDetailUiState() }
+    fun updatePlant(
+        plantId   : Int,
+        plantKind : String,
+        imageUri  : Uri,
+    ) {
+        viewModelScope.launch {
+            _updateState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            when (val result = repository.updatePlant(
+                plantId   = plantId,
+                plantKind = plantKind,
+                imageUri  = imageUri,
+            )) {
+                is Result.Success -> {
+                    android.util.Log.d("PlantVM", "업데이트 성공: ${result.data}")
+                    _updateState.update { it.copy(isLoading = false, isSuccess = true) }
+                    // ── 상세 화면 데이터 갱신 ────────────────────
+                    loadPlantDetail(plantId)
+                }
+                is Result.Error -> {
+                    android.util.Log.e("PlantVM", "업데이트 실패: ${result.message}")
+                    _updateState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+                is Result.Loading -> Unit
+            }
+        }
     }
+
+    fun resetUpdateState() {
+        _updateState.update { UpdatePlantUiState() }
+    }
+
 
     fun resetState() {
         _addState.update { AddPlantUiState() }

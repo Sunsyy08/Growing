@@ -67,21 +67,18 @@ class PlantRepository(private val context: Context) {
     }
 
     // ── 유저의 식물 ID 목록 ────────────────────────────────────
-    suspend fun getPlantIds(userId: Int): Result<List<Pair<Int, String?>>> {
+    suspend fun getPlantIds(userId: Int): Result<List<Int>> {
         return try {
             val response = api.getPlantIds(userId)
             android.util.Log.d("PlantRepo", "식물ID 응답코드: ${response.code()}")
             android.util.Log.d("PlantRepo", "식물ID 바디: ${response.body()}")
 
             if (response.isSuccessful) {
-                val list = response.body()
-                    ?.mapNotNull { item ->
-                        val id = item.plant_id ?: return@mapNotNull null
-                        Pair(id, item.plant_kind)
-                    }
+                val ids = response.body()
+                    ?.mapNotNull { it.plant_id }
                     ?: emptyList()
-                android.util.Log.d("PlantRepo", "파싱된 목록: $list")
-                Result.Success(list)
+                android.util.Log.d("PlantRepo", "파싱된 IDs: $ids")
+                Result.Success(ids)
             } else {
                 val err = response.errorBody()?.string()
                 android.util.Log.e("PlantRepo", "식물ID 실패: ${response.code()} $err")
@@ -129,6 +126,55 @@ class PlantRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             android.util.Log.e("PlantRepo", "상세 예외[$plantId]: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
+        }
+    }
+
+    suspend fun updatePlant(
+        plantId     : Int,
+        plantKind   : String,   // "카사바" → "casava", "고무나무" → "rubber"
+        imageUri    : Uri,
+    ): Result<PlantResponse> {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(imageUri)
+                ?: return Result.Error("이미지를 읽을 수 없습니다.")
+
+            val imageBytes = inputStream.readBytes()
+            val imageBody  = imageBytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+            val imagePart  = MultipartBody.Part.createFormData(
+                name     = "image",
+                filename = "update_${System.currentTimeMillis()}.jpg",
+                body     = imageBody,
+            )
+
+            // ── plant_kind → select_model 변환 ───────────────────
+            val selectModel = when (plantKind) {
+                "카사바"   -> "casava"
+                "고무나무" -> "rubber"
+                else       -> "casava"  // 기본값
+            }
+
+            android.util.Log.d("PlantRepo", "업데이트 요청 → plant_id=$plantId model=$selectModel")
+
+            val response = api.updatePlant(
+                plantId     = plantId,
+                selectModel = selectModel,
+                image       = imagePart,
+            )
+
+            android.util.Log.d("PlantRepo", "업데이트 응답: ${response.code()} ${response.body()}")
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) Result.Success(body)
+                else Result.Error("응답 데이터가 없습니다.")
+            } else {
+                val err = response.errorBody()?.string()
+                android.util.Log.e("PlantRepo", "업데이트 실패: ${response.code()} $err")
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "업데이트 예외: ${e.message}")
             Result.Error(e.message ?: "네트워크 오류가 발생했습니다.")
         }
     }
