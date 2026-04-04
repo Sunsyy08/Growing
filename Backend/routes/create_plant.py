@@ -216,3 +216,25 @@ def get_image_url(user_id: int):
 @router.get("/get_all_image")
 def get_all_image(image_url:str):
     return FileResponse(f"/Users/honggunwoo/Desktop/Growing/static/{image_url}")
+
+@router.get("/get_all_score")
+def get_score(user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = """
+            select plant_kind, plant_name, id from create_plants where user_id =%s ORDER BY created_at DESC LIMIT 5
+        """
+    cursor.execute(sql, (user_id,))
+    plant = cursor.fetchone()
+    select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 1"
+    cursor.execute(select_sql, (plant["plant_id"],))
+    score = cursor.fetchone()
+    if score['score'] >= 70:
+        status = "좋음"
+    elif score['score'] >= 40:
+        status = "보통"
+    else:
+        status = "나쁨"
+    print(score['score'])
+    return {"점수":score['score'], "상태":status, "종류":plant['plant_kind'], "이름":plant["plant_name"]}
