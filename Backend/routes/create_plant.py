@@ -4,6 +4,9 @@ from database import get_db_connection
 from ultralytics import YOLO
 import uuid
 import os
+from fastapi.responses import StreamingResponse
+import io
+import zipfile
 
 router = APIRouter(tags=["Create Plant"])
 
@@ -205,6 +208,19 @@ def get_image(user_id: int):
 
     for row in plant:
         result.append({
-            "image":FileResponse(f"/Users/honggunwoo/Desktop/Growing/static/{row['image_url']}")
+            "image":f"/Users/honggunwoo/Desktop/Growing/static/{row['image_url']}"
         })
-    return result
+        
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, "w") as zipf:
+        for path in result:
+            zipf.write(path)
+
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/x-zip-compressed",
+        headers={"Content-Disposition": "attachment; filename=images.zip"}
+    )
