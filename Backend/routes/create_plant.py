@@ -38,6 +38,24 @@ def predict_model(image: str, model: str):
     score = base_score[name] * conf2 + 100 * (1 - conf2)
     return score
 
+def insert_plant(plant_id: int, image_name: UploadFile, select_model: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    score = predict_model(image_name, select_model)
+    
+    try:
+        sql_insert = "INSERT INTO plant_state (plant_id, score) VALUES (%s, %s)"
+        cursor.execute(sql_insert, (plant_id, score))
+        conn.commit()
+        sql_update = "UPDATE create_plants SET image_url = %s WHERE id = %s"
+        cursor.execute(sql_update, image_name, plant_id)
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"filename": image_name, "score":score}
+
 @router.post("/create_plant")
 def create_plant(user_id: int, plant_name: str, image: UploadFile, plant_kind: str, plant_location: str, pot_size: str, water_cycle: str):
     UPLOAD_DIR = "/Users/honggunwoo/Desktop/Growing/static"
@@ -54,6 +72,10 @@ def create_plant(user_id: int, plant_name: str, image: UploadFile, plant_kind: s
         sql_insert = "INSERT INTO create_plants (user_id, plant_name, image_url, plant_kind, plant_location, pot_size, water_cycle) VALUES (%s, %s, %s, %s, %s, %s, %s)"
         cursor.execute(sql_insert, (user_id, plant_name, filename, plant_kind, plant_location, pot_size, water_cycle))
         conn.commit()
+        sql_select = "select plant_id from create_plants where plant_name = %s"
+        cursor.execute(sql_select, (plant_id,))
+        plant_id = cursor.fetchone()
+        insert_plant(plant_id, filename, plant_kind)
     finally:
         conn.close()
 
@@ -74,8 +96,11 @@ def update_plant(plant_id: int, image: UploadFile, select_model: str):
     score = predict_model(filename, select_model)
     
     try:
-        sql_insert = "INSERT INTO  (plant_id, score) VALUES (%s, %s)"
+        sql_insert = "INSERT INTO plant_state (plant_id, score) VALUES (%s, %s)"
         cursor.execute(sql_insert, (plant_id, score))
+        conn.commit()
+        sql_update = "UPDATE create_plants SET image_url = %s WHERE id = %s"
+        cursor.execute(sql_update, filename, plant_id)
         conn.commit()
     finally:
         conn.close()
@@ -126,22 +151,19 @@ def get_score(plant_id: int):
     cursor = conn.cursor()
     
     sql = """
-            select image_url, plant_kind from create_plants where id =%s
+            select plant_kind from create_plants where id =%s
         """
     cursor.execute(sql, (plant_id,))
     plant = cursor.fetchone()
-    image = f"{plant['image_url']}"
-    if plant['plant_kind'] == "카사바":
-        plant_kind = "casava"
-    elif plant['plant_kind'] == "고무나무":
-        plant_kind = "rubber"
-    score = predict_model(image, plant_kind)
-    if score >= 70:
+    select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 1;"
+    cursor.execute(select_sql, (plant_id,))
+    score = cursor.fetchone()
+    if score['score'] >= 70:
         status = "좋음"
-    elif score >= 40:
+    elif score['score'] >= 40:
         status = "보통"
     else:
         status = "나쁨"
-    print(score)
-    return {"점수":score, "상태":status}
+    print(score['score'])
+    return {"점수":score['score'], "상태":status, "종류":plant['plant_kind']}
 # id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
