@@ -47,4 +47,9 @@ interface PlantApi {
         @Query("select_model") selectModel : String,
         @Part                  image       : MultipartBody.Part,
     ): Response<PlantResponse>
+
+    @POST("analyze_plant")
+    suspend fun analyzePlant(
+        @Query("plant_id") plantId: Int,
+    ): Response<PlantAnalysisResponse>
 }

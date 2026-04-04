@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.project.growing.data.local.UserPreferences
+import com.project.growing.data.plant.PlantAnalysisResponse
 import com.project.growing.data.plant.PlantDetailResponse
 import com.project.growing.data.plant.PlantRepository
 import com.project.growing.util.Result
@@ -50,6 +51,13 @@ data class UpdatePlantUiState(
     val errorMessage : String? = null,
 )
 
+// ── AI 분석 UI 상태 ───────────────────────────────────────────
+data class AiAnalysisUiState(
+    val isLoading    : Boolean                = false,
+    val analysis     : PlantAnalysisResponse? = null,
+    val errorMessage : String?                = null,
+)
+
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository      = PlantRepository(application.applicationContext)
@@ -66,6 +74,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _updateState = MutableStateFlow(UpdatePlantUiState())
     val updateState: StateFlow<UpdatePlantUiState> = _updateState.asStateFlow()
+
+    private val _analysisState = MutableStateFlow(AiAnalysisUiState())
+    val analysisState: StateFlow<AiAnalysisUiState> = _analysisState.asStateFlow()
 
     // ══════════════════════════════════════════════════════════
     // 홈 화면 데이터 로드
@@ -248,6 +259,40 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun loadAiAnalysis(plantId: Int) {
+        viewModelScope.launch {
+            _analysisState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            // ── analyze_plant + get_score 병렬 요청 ───────────────
+            val analysisDeferred = async { repository.analyzePlant(plantId) }
+            val scoreDeferred    = async { repository.getPlantScore(plantId) }
+
+            val analysisResult = analysisDeferred.await()
+            val scoreResult    = scoreDeferred.await()
+
+            // ── get_score에서 점수 가져오기 (홈/디테일과 동일) ────
+            val score = when (scoreResult) {
+                is Result.Success -> scoreResult.data.score?.toInt()
+                else              -> null
+            }
+
+            when (analysisResult) {
+                is Result.Success -> {
+                    // analyze_plant 결과에 get_score 점수 덮어씌우기
+                    val analysis = analysisResult.data.copy(
+                        score = score ?: analysisResult.data.score
+                    )
+                    android.util.Log.d("PlantVM", "AI 분석 성공: $analysis (점수: $score)")
+                    _analysisState.update { it.copy(isLoading = false, analysis = analysis) }
+                }
+                is Result.Error -> {
+                    android.util.Log.e("PlantVM", "AI 분석 실패: ${analysisResult.message}")
+                    _analysisState.update { it.copy(isLoading = false, errorMessage = analysisResult.message) }
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
     fun resetUpdateState() {
         _updateState.update { UpdatePlantUiState() }
     }

@@ -49,3 +49,12 @@ data class PlantDetailResponse(
     val score        : Float?  = null,
     val analysis_ai  : String? = null,
 )
+
+data class PlantAnalysisResponse(
+    val plant_id          : Int?    = null,
+    val score             : Int?    = null,
+    val state_description : String? = null,
+    val sunlight_status   : String? = null,
+    val air_circulation   : String? = null,
+    val health_prediction : String? = null,
+)

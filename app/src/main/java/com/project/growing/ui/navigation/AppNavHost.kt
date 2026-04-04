@@ -159,7 +159,7 @@ fun AppNavHost(
                 )
             }
 
-            // ── 식물 상세 ─────────────────────────────────────────
+            // ── 식물 상세 ─────────────────────────────────────────────────
             composable(
                 route     = Screen.PlantDetail.route,
                 arguments = listOf(
@@ -183,7 +183,9 @@ fun AppNavHost(
                     plantId        = plantId,
                     plantViewModel = plantViewModel,
                     onBack         = { navController.popBackStack() },
-                    onAiAnalysis   = { navController.navigate(Screen.AiAnalysis.route) },
+                    onAiAnalysis   = {
+                        navController.navigate(Screen.AiAnalysis.createRoute(plantId))  // ← plantId 전달
+                    },
                     onAskExpert    = { },
                 )
             }
@@ -196,10 +198,30 @@ fun AppNavHost(
                 )
             }
 
-            // ── AI 분석 ───────────────────────────────────────────
-            composable(Screen.AiAnalysis.route) {
+            // ── AI 분석 ───────────────────────────────────────────────────
+            composable(
+                route     = Screen.AiAnalysis.route,
+                arguments = listOf(
+                    navArgument(Screen.AiAnalysis.ARG_PLANT_ID) {
+                        type = NavType.StringType
+                    }
+                ),
+            ) { backStackEntry ->
+                val plantId = backStackEntry.arguments
+                    ?.getString(Screen.AiAnalysis.ARG_PLANT_ID)
+                    ?.toIntOrNull() ?: 0
+
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val plantViewModel: PlantViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
+                        context.applicationContext as android.app.Application
+                    )
+                )
+
                 AiAnalysisScreen(
-                    onBack = { navController.popBackStack() },
+                    plantId        = plantId,       // ← 실제 plantId 전달
+                    plantViewModel = plantViewModel,
+                    onBack         = { navController.popBackStack() },
                 )
             }
 
