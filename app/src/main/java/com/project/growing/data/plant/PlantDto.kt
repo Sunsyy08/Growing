@@ -58,3 +58,8 @@ data class PlantAnalysisResponse(
     val air_circulation   : String? = null,
     val health_prediction : String? = null,
 )
+
+data class GraphPointDto(
+    @SerializedName("점수") val score : Float?  = null,
+    @SerializedName("날짜") val date  : String? = null,
+)

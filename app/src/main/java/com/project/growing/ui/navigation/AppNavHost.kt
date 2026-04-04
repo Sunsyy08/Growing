@@ -132,7 +132,13 @@ fun AppNavHost(
 
             // ── 기록 ──────────────────────────────────────────────
             composable(Screen.Record.route) {
-                RecordScreen()
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val plantViewModel: PlantViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
+                        context.applicationContext as android.app.Application
+                    )
+                )
+                RecordScreen(plantViewModel = plantViewModel)
             }
 
             // ── 상담 ──────────────────────────────────────────────

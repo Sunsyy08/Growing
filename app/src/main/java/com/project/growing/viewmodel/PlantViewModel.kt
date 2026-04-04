@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.project.growing.data.local.UserPreferences
+import com.project.growing.data.plant.GraphPointDto
 import com.project.growing.data.plant.PlantAnalysisResponse
 import com.project.growing.data.plant.PlantDetailResponse
 import com.project.growing.data.plant.PlantRepository
@@ -58,6 +59,13 @@ data class AiAnalysisUiState(
     val errorMessage : String?                = null,
 )
 
+// ── 기록 화면 UI 상태 ─────────────────────────────────────────
+data class RecordUiState(
+    val isLoading    : Boolean          = false,
+    val graphPoints  : List<GraphPointDto> = emptyList(),
+    val errorMessage : String?          = null,
+)
+
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository      = PlantRepository(application.applicationContext)
@@ -77,6 +85,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _analysisState = MutableStateFlow(AiAnalysisUiState())
     val analysisState: StateFlow<AiAnalysisUiState> = _analysisState.asStateFlow()
+
+    private val _recordState = MutableStateFlow(RecordUiState())
+    val recordState: StateFlow<RecordUiState> = _recordState.asStateFlow()
 
     // ══════════════════════════════════════════════════════════
     // 홈 화면 데이터 로드
@@ -293,6 +304,25 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    fun loadGraph(plantId: Int) {
+        viewModelScope.launch {
+            _recordState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            when (val result = repository.drawGraph(plantId)) {
+                is Result.Success -> {
+                    android.util.Log.d("PlantVM", "그래프 데이터: ${result.data}")
+                    _recordState.update { it.copy(isLoading = false, graphPoints = result.data) }
+                }
+                is Result.Error -> {
+                    android.util.Log.e("PlantVM", "그래프 로드 실패: ${result.message}")
+                    _recordState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+                is Result.Loading -> Unit
+            }
+        }
+    }
+
     fun resetUpdateState() {
         _updateState.update { UpdatePlantUiState() }
     }

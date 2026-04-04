@@ -52,4 +52,9 @@ interface PlantApi {
     suspend fun analyzePlant(
         @Query("plant_id") plantId: Int,
     ): Response<PlantAnalysisResponse>
+
+    @GET("draw_graph")
+    suspend fun drawGraph(
+        @Query("plant_id") plantId: Int,
+    ): Response<List<GraphPointDto>>
 }
