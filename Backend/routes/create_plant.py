@@ -169,4 +169,24 @@ def get_score(plant_id: int):
         status = "나쁨"
     print(score['score'])
     return {"점수":score['score'], "상태":status, "종류":plant['plant_kind'], "이름":plant["plant_name"]}
-# id, user_id, image_url, plant_kind, plant_location, pot_size, water_cycle, created_at
+
+@router.get("/draw_graph")
+def draw_graph(plant_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = """
+            SELECT score, created_at FROM plant_state ORDER BY created_at ASC;
+        """
+    cursor.execute(sql, (plant_id,))
+    plants = cursor.fetchall()
+
+    result = []
+
+    for row in plants:
+        result.append({
+            "점수": row["score"],
+            "날짜": row["created_at"]
+        })
+
+    return result
