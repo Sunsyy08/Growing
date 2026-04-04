@@ -32,6 +32,15 @@ import androidx.compose.ui.unit.sp
 import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
 import com.project.growing.ui.theme.*
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.scale
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import com.project.growing.data.consult.ConsultRecord
+import com.project.growing.viewmodel.ConsultViewModel
 
 // ── 샘플 데이터 ──────────────────────────────────────────────
 
@@ -94,20 +103,22 @@ val sampleQuestions = listOf(
 
 @Composable
 fun ConsultScreen(
-    onWriteQuestion : () -> Unit = {},
+    consultViewModel : ConsultViewModel    = viewModel(),
+    onWriteQuestion : () -> Unit       = {},
     onQuestionClick : (String) -> Unit = {},
 ) {
     GrowingTheme {
+        // ── ViewModel 연결 ─────────────────────────────────────
+        val records by consultViewModel.records.collectAsStateWithLifecycle()
+
         val listState = rememberLazyListState()
 
+        // 기존 애니메이션 코드 유지...
         val headerAlpha by remember {
             derivedStateOf {
                 when {
                     listState.firstVisibleItemIndex > 0 -> 0f
-                    else -> {
-                        val offset = listState.firstVisibleItemScrollOffset.toFloat()
-                        (1f - offset / 320f).coerceIn(0f, 1f)
-                    }
+                    else -> (1f - listState.firstVisibleItemScrollOffset / 320f).coerceIn(0f, 1f)
                 }
             }
         }
@@ -120,167 +131,247 @@ fun ConsultScreen(
 
         val infiniteTransition = rememberInfiniteTransition(label = "fab_pulse")
         val fabGlowAlpha by infiniteTransition.animateFloat(
-            initialValue  = 0.35f,
-            targetValue   = 0.65f,
-            animationSpec = infiniteRepeatable(
-                animation  = tween(1200, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
+            initialValue  = 0.35f, targetValue = 0.65f,
+            animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
             label = "fab_glow",
         )
         val fabScale by infiniteTransition.animateFloat(
-            initialValue  = 1f,
-            targetValue   = 1.04f,
-            animationSpec = infiniteRepeatable(
-                animation  = tween(1200, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
+            initialValue  = 1f, targetValue = 1.04f,
+            animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
             label = "fab_scale",
         )
 
-        // ── Scaffold 제거 → Box로 대체 ───────────────────────
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF5F7F5))
+            modifier = Modifier.fillMaxSize().background(Color(0xFFF5F7F5))
         ) {
-
-            // ── LazyColumn (contentPadding bottom으로 FAB 공간 확보) ──
             LazyColumn(
                 state          = listState,
                 modifier       = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 100.dp), // FAB 높이만큼 여백
+                contentPadding = PaddingValues(bottom = 100.dp),
             ) {
 
-                // ── 상단 헤더 ──────────────────────────────
+                // ── 헤더 ──────────────────────────────────────
                 item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .graphicsLayer {
-                                alpha        = headerAlpha
-                                translationY = headerTranslationY
-                            }
+                            .graphicsLayer { alpha = headerAlpha; translationY = headerTranslationY }
                             .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF1B5E20),
-                                        Color(0xFF2E7D32),
-                                        Color(0xFF43A967),
-                                        Color(0xFF66BB7A),
-                                    )
-                                )
+                                Brush.verticalGradient(listOf(
+                                    Color(0xFF1B5E20), Color(0xFF2E7D32),
+                                    Color(0xFF43A967), Color(0xFF66BB7A),
+                                ))
                             )
-                            .padding(
-                                start  = 22.dp,
-                                end    = 22.dp,
-                                top    = 52.dp,
-                                bottom = 28.dp,
-                            )
+                            .padding(start = 22.dp, end = 22.dp, top = 52.dp, bottom = 28.dp)
                     ) {
                         Column {
-                            Text(
-                                text          = "전문가 상담",
-                                fontSize      = 24.sp,
-                                fontWeight    = FontWeight.ExtraBold,
-                                color         = White,
-                                letterSpacing = (-0.5).sp,
-                            )
+                            Text("전문가 상담", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = White, letterSpacing = (-0.5).sp)
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text     = "궁금한 점을 전문가에게 물어보세요 🌱",
-                                fontSize = 13.sp,
-                                color    = White.copy(alpha = 0.88f),
-                            )
+                            Text("AI 상담사가 식물 고민을 해결해드려요 🌱", fontSize = 13.sp, color = White.copy(alpha = 0.88f))
                             Spacer(modifier = Modifier.height(16.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                HeaderStatBadge(icon = "👨‍🌾", label = "전문가 ${sampleExperts.size}명")
-                                HeaderStatBadge(icon = "💬", label = "질문 ${sampleQuestions.size}개")
+                                HeaderStatBadge(icon = "🤖", label = "AI 상담사 3명")
+                                HeaderStatBadge(icon = "💬", label = "상담 ${records.size}건")
                             }
                         }
                     }
                 }
 
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedExpertCard()
+                // ── 상담 기록이 없을 때 ────────────────────────
+                if (records.isEmpty()) {
+                    item {
+                        Box(
+                            modifier         = Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("🌿", fontSize = 48.sp)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text       = "아직 상담 기록이 없어요\n+ 버튼을 눌러 질문해보세요",
+                                    fontSize   = 14.sp,
+                                    color      = TextSecondary,
+                                    textAlign  = TextAlign.Center,
+                                    lineHeight = 20.sp,
+                                )
+                            }
+                        }
+                    }
                 }
 
-                item {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment     = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text          = "최근 질문",
-                            fontSize      = 17.sp,
-                            fontWeight    = FontWeight.Bold,
-                            color         = TextPrimary,
-                            letterSpacing = (-0.2).sp,
-                        )
-                        Text(
-                            text     = "${sampleQuestions.size}개",
-                            fontSize = 13.sp,
-                            color    = TextSecondary,
+                // ── 상담 기록 목록 ─────────────────────────────
+                if (records.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment     = Alignment.CenterVertically,
+                        ) {
+                            Text("상담 기록", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TextPrimary, letterSpacing = (-0.2).sp)
+                            Text("${records.size}건", fontSize = 13.sp, color = TextSecondary)
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+
+                    items(
+                        items = records,
+                        key   = { it.id },
+                    ) { record ->
+                        ConsultRecordCard(
+                            record   = record,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp),
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-
-                items(
-                    items = sampleQuestions,
-                    key   = { it.id },
-                ) { question ->
-                    AnimatedQuestionCard(
-                        question = question,
-                        onClick  = { onQuestionClick(question.id) },
-                        modifier = Modifier.padding(
-                            horizontal = 20.dp,
-                            vertical   = 5.dp,
-                        ),
-                    )
                 }
             }
 
-            // ── FAB: Box 오른쪽 하단에 직접 배치 ────────────
+            // ── FAB ───────────────────────────────────────────
             FloatingActionButton(
                 onClick        = onWriteQuestion,
                 containerColor = Color(0xFF43A967),
                 contentColor   = White,
                 shape          = RoundedCornerShape(28.dp),
                 modifier       = Modifier
-                    .align(Alignment.BottomEnd)          // 오른쪽 하단
+                    .align(Alignment.BottomEnd)
                     .padding(end = 16.dp, bottom = 16.dp)
                     .scale(fabScale)
-                    .shadow(
-                        elevation    = 14.dp,
-                        shape        = RoundedCornerShape(28.dp),
+                    .shadow(14.dp, RoundedCornerShape(28.dp),
                         ambientColor = Color(0xFF43A967).copy(alpha = fabGlowAlpha),
-                        spotColor    = Color(0xFF43A967).copy(alpha = fabGlowAlpha),
-                    ),
+                        spotColor    = Color(0xFF43A967).copy(alpha = fabGlowAlpha)),
             ) {
-                Row(
-                    modifier          = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector        = Icons.Rounded.Add,
-                        contentDescription = null,
-                        modifier           = Modifier.size(18.dp),
-                    )
+                Row(modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
+                    Text("질문 작성하기", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+// ── 상담 기록 카드 ────────────────────────────────────────────
+
+@Composable
+fun ConsultRecordCard(
+    record   : ConsultRecord,
+    modifier : Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(5.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x0D000000), spotColor = Color(0x0D000000))
+            .clip(RoundedCornerShape(18.dp))
+            .background(White)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+
+            // ── 상담사 + 이미지 ────────────────────────────────
+            Row(
+                modifier          = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+            ) {
+                // 이미지 (있을 때만)
+                if (record.imageUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    ) {
+                        AsyncImage(
+                            model              = android.net.Uri.parse(record.imageUri),
+                            contentDescription = "식물 사진",
+                            contentScale       = ContentScale.Crop,
+                            modifier           = Modifier.fillMaxSize(),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    // 상담사 뱃지
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(Color(0xFF43A967).copy(alpha = 0.1f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                        ) {
+                            Text(
+                                text       = record.expert,
+                                fontSize   = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = Color(0xFF43A967),
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text     = formatTime(record.createdAt),
+                            fontSize = 11.sp,
+                            color    = TextSecondary,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // 질문
                     Text(
-                        text       = "질문 작성하기",
+                        text       = record.message,
                         fontSize   = 14.sp,
                         fontWeight = FontWeight.SemiBold,
+                        color      = TextPrimary,
+                        maxLines   = 2,
+                        overflow   = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        lineHeight = 20.sp,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // ── AI 답변 ────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF0FAF4))
+                    .padding(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF43A967)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("AI", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = White)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text       = record.answer,
+                        fontSize   = 12.sp,
+                        color      = TextSecondary,
+                        maxLines   = 3,
+                        overflow   = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        lineHeight = 18.sp,
+                        modifier   = Modifier.weight(1f),
                     )
                 }
             }
         }
+    }
+}
+
+// ── 시간 포맷 ─────────────────────────────────────────────────
+fun formatTime(timestamp: Long): String {
+    val now  = System.currentTimeMillis()
+    val diff = now - timestamp
+    return when {
+        diff < 60_000         -> "방금 전"
+        diff < 3_600_000      -> "${diff / 60_000}분 전"
+        diff < 86_400_000     -> "${diff / 3_600_000}시간 전"
+        else                  -> "${diff / 86_400_000}일 전"
     }
 }
 
