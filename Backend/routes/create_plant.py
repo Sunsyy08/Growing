@@ -190,3 +190,21 @@ def draw_graph(plant_id: int):
         })
 
     return result
+
+@router.get("/get_plant_image")
+def get_image(user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    sql = """
+            select image_url from create_plants where user_id =%s
+        """
+    cursor.execute(sql, (user_id,))
+    plant = cursor.fetchall()
+    result = []
+
+    for row in plant:
+        result.append({
+            "image":FileResponse(f"/Users/honggunwoo/Desktop/Growing/static/{row['image_url']}")
+        })
+    return result
