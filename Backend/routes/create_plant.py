@@ -228,7 +228,7 @@ def get_score(user_id: int):
     cursor.execute(sql, (user_id,))
     plant = cursor.fetchone()
     select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 1"
-    cursor.execute(select_sql, (plant["plant_id"],))
+    cursor.execute(select_sql, (plant["id"],))
     score = cursor.fetchone()
     if score['score'] >= 70:
         status = "좋음"
