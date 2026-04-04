@@ -161,7 +161,7 @@ def get_score(plant_id: int):
         """
     cursor.execute(sql, (plant_id,))
     plant = cursor.fetchone()
-    select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 1;"
+    select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 1"
     cursor.execute(select_sql, (plant_id,))
     score = cursor.fetchone()
     if score['score'] >= 70:
@@ -194,13 +194,13 @@ def draw_graph(plant_id: int):
 
     return result
 
-@router.get("/get_plant_all_image")
-def get_image(user_id: int):
+@router.get("/get_all_image_url")
+def get_image_url(user_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     sql = """
-            select image_url from create_plants where user_id =%s
+            select image_url from create_plants where user_id =%s ORDER BY created_at DESC LIMIT 5
         """
     cursor.execute(sql, (user_id,))
     plant = cursor.fetchall()
@@ -208,19 +208,11 @@ def get_image(user_id: int):
 
     for row in plant:
         result.append({
-            "image":f"/Users/honggunwoo/Desktop/Growing/static/{row['image_url']}"
+            "image_url": row['image_url']
         })
-        
-    buffer = io.BytesIO()
 
-    with zipfile.ZipFile(buffer, "w") as zipf:
-        for path in result:
-            zipf.write(path)
+    return result
 
-    buffer.seek(0)
-
-    return StreamingResponse(
-        buffer,
-        media_type="application/x-zip-compressed",
-        headers={"Content-Disposition": "attachment; filename=images.zip"}
-    )
+@router.get("/get_all_image")
+def get_all_image(image_url:str):
+    return FileResponse(f"/Users/honggunwoo/Desktop/Growing/static/{image_url}")
