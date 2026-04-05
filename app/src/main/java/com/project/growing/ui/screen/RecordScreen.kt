@@ -45,18 +45,8 @@ import coil.compose.AsyncImage
 
 data class ChartPoint(val date: String, val score: Int)
 
-data class ActivityRecord(
-    val id: String,
-    val emoji: String,
-    val plantName: String,
-    val dateTime: String,
-    val actionIcon: String,
-    val action: String,
-    val memo: String,
-    val scoreDelta: Int?,
-)
-
 // ── 샘플 데이터 ───────────────────────────────────────────────
+
 
 val chartPoints: List<ChartPoint> = listOf(
     ChartPoint("3/10", 85),
@@ -68,49 +58,6 @@ val chartPoints: List<ChartPoint> = listOf(
     ChartPoint("3/16", 94),
     ChartPoint("3/17", 96),
     ChartPoint("3/18", 95),
-)
-
-val activityRecords: List<ActivityRecord> = listOf(
-    ActivityRecord(
-        id = "1",
-        emoji = "🌿",
-        plantName = "몬스테라",
-        dateTime = "2026년 3월 18일 · 오전 10:30",
-        actionIcon = "water",
-        action = "물주기",
-        memo = "건강 상태가 좋아졌어요",
-        scoreDelta = 2,
-    ),
-    ActivityRecord(
-        id = "2",
-        emoji = "🌵",
-        plantName = "다육이",
-        dateTime = "2026년 3월 17일 · 오후 3:15",
-        actionIcon = "camera",
-        action = "사진 촬영",
-        memo = "AI 분석 완료",
-        scoreDelta = null,
-    ),
-    ActivityRecord(
-        id = "3",
-        emoji = "🍃",
-        plantName = "떡갈고무나무",
-        dateTime = "2026년 3월 16일 · 오전 9:00",
-        actionIcon = "water",
-        action = "물주기",
-        memo = "새 잎이 자라고 있어요",
-        scoreDelta = 3,
-    ),
-    ActivityRecord(
-        id = "4",
-        emoji = "🪴",
-        plantName = "스투키",
-        dateTime = "2026년 3월 15일 · 오후 2:20",
-        actionIcon = "water",
-        action = "물주기",
-        memo = "과습 주의가 필요해요",
-        scoreDelta = -5,
-    ),
 )
 
 // ── RecordScreen ──────────────────────────────────────────────
@@ -200,6 +147,7 @@ fun RecordScreen(
             }
 
             // ── 식물 선택 탭 ───────────────────────────────────
+            // ── 식물 선택 탭 ← 여기 추가 ─────────────────────────────────
             if (homeState.plants.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -213,12 +161,11 @@ fun RecordScreen(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
                                     .background(
-                                        if (isSelected) GreenPrimary
-                                        else Color.White
+                                        if (isSelected) Color(0xFF43A967) else Color.White
                                     )
                                     .border(
                                         1.dp,
-                                        if (isSelected) GreenPrimary else Color(0xFFDDDDDD),
+                                        if (isSelected) Color(0xFF43A967) else Color(0xFFDDDDDD),
                                         RoundedCornerShape(50)
                                     )
                                     .clickable(
@@ -339,113 +286,154 @@ fun RecordScreen(
             }
 
             // ── 최근 기록 섹션 ────────────────────────────────────────────
-            if (!recentState.isLoading && recentState.imageUrls.isNotEmpty()) {
+            // ── 활동 기록 타임라인 (그래프 아래) ─────────────────────────
+            if (homeState.plants.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     RecordElevatedCard(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Text(
+                            text       = "활동 기록",
+                            fontSize   = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color      = TextPrimary,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // 헤더
-                        Row(
-                            modifier              = Modifier.fillMaxWidth(),
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text       = "최근 기록",
-                                fontSize   = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color      = TextPrimary,
-                            )
-                            // 상태 뱃지
-                            if (recentState.status != null) {
-                                val statusColor = when (recentState.status) {
-                                    "좋음" -> Color(0xFF2E7D32)
-                                    "보통" -> Color(0xFF1565C0)
-                                    "나쁨" -> Color(0xFFC62828)
-                                    else   -> TextSecondary
-                                }
-                                val statusBg = when (recentState.status) {
-                                    "좋음" -> Color(0xFFE8F5E9)
-                                    "보통" -> Color(0xFFE3F2FD)
-                                    "나쁨" -> Color(0xFFFFEBEE)
-                                    else   -> Color(0xFFF5F5F5)
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(50))
-                                        .background(statusBg)
-                                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                        homeState.plants.forEachIndexed { index, plant ->
+                            Row(modifier = Modifier.fillMaxWidth()) {
+
+                                // ── 좌측: 아이콘 + 수직선 ─────────────────
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier            = Modifier.width(32.dp),
                                 ) {
-                                    Text(
-                                        text       = recentState.status!!,
-                                        fontSize   = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color      = statusColor,
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE3F2FD)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector        = Icons.Rounded.WaterDrop,
+                                            contentDescription = null,
+                                            tint               = Color(0xFF5BB8F5),
+                                            modifier           = Modifier.size(15.dp),
+                                        )
+                                    }
+                                    if (index < homeState.plants.lastIndex) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(1.5.dp)
+                                                .height(86.dp)
+                                                .background(Color(0xFFDDDDDD))
+                                        )
+                                    }
                                 }
-                            }
-                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
 
-                        // 식물 이름 + 점수
-                        Row(
-                            modifier          = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text       = recentState.plantName ?: recentState.plantKind ?: "내 식물",
-                                    fontSize   = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color      = TextPrimary,
-                                )
-                                if (recentState.plantKind != null) {
-                                    Text(
-                                        text     = recentState.plantKind!!,
-                                        fontSize = 12.sp,
-                                        color    = TextSecondary,
-                                    )
-                                }
-                            }
-                            if (recentState.score != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0xFF43A967))
-                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                // ── 우측: 이미지 + 정보 ───────────────────
+                                Row(
+                                    modifier          = Modifier
+                                        .weight(1f)
+                                        .padding(bottom = if (index < homeState.plants.lastIndex) 16.dp else 0.dp),
+                                    verticalAlignment = Alignment.Top,
                                 ) {
-                                    Text(
-                                        text       = "${recentState.score}점",
-                                        fontSize   = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color      = Color.White,
-                                    )
-                                }
-                            }
-                        }
+                                    // 식물 이미지
+                                    Box(
+                                        modifier = Modifier
+                                            .size(70.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFFDCEFE3)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        if (plant.imageUrl != null) {
+                                            AsyncImage(
+                                                model              = plant.imageUrl,
+                                                contentDescription = plant.plantName,
+                                                contentScale       = ContentScale.Crop,
+                                                modifier           = Modifier.fillMaxSize(),
+                                            )
+                                        } else {
+                                            Text("🪴", fontSize = 28.sp)
+                                        }
+                                    }
 
-                        Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.8.dp)
-                        Spacer(modifier = Modifier.height(12.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
 
-                        // 최근 이미지 가로 스크롤
-                        Text("최근 사진", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
-                        Spacer(modifier = Modifier.height(8.dp))
+                                    // 텍스트 정보
+                                    Column(modifier = Modifier.weight(1f)) {
 
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(recentState.imageUrls) { url ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                ) {
-                                    AsyncImage(
-                                        model              = url,
-                                        contentDescription = "최근 식물 사진",
-                                        contentScale       = ContentScale.Crop,
-                                        modifier           = Modifier.fillMaxSize(),
-                                    )
+                                        // 식물명 + 점수 뱃지
+                                        Row(
+                                            modifier              = Modifier.fillMaxWidth(),
+                                            verticalAlignment     = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Text(
+                                                text       = plant.plantName ?: plant.plantKind ?: "내 식물",
+                                                fontSize   = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color      = TextPrimary,
+                                            )
+                                            if (plant.score != null) {
+                                                val statusColor = when (plant.status) {
+                                                    "좋음" -> Color(0xFF2E7D32)
+                                                    "보통" -> Color(0xFF1565C0)
+                                                    "나쁨" -> Color(0xFFC62828)
+                                                    else   -> TextSecondary
+                                                }
+                                                val statusBg = when (plant.status) {
+                                                    "좋음" -> Color(0xFFE8F5E9)
+                                                    "보통" -> Color(0xFFE3F2FD)
+                                                    "나쁨" -> Color(0xFFFFEBEE)
+                                                    else   -> Color(0xFFF5F5F5)
+                                                }
+                                                Row(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(50))
+                                                        .background(statusBg)
+                                                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Icon(
+                                                        imageVector        = Icons.Rounded.TrendingUp,
+                                                        contentDescription = null,
+                                                        tint               = statusColor,
+                                                        modifier           = Modifier.size(11.dp),
+                                                    )
+                                                    Spacer(modifier = Modifier.width(2.dp))
+                                                    Text(
+                                                        text       = "${plant.score}점",
+                                                        fontSize   = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color      = statusColor,
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(3.dp))
+
+                                        // 식물 종류
+                                        if (plant.plantKind != null) {
+                                            Text(
+                                                text     = plant.plantKind,
+                                                fontSize = 11.sp,
+                                                color    = TextSecondary,
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        // ── 날짜 표시 (물주기/메모 제거) ─────
+                                        Text(
+                                            text     = "등록된 식물",
+                                            fontSize = 12.sp,
+                                            color    = TextSecondary,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -454,155 +442,6 @@ fun RecordScreen(
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
-        }
-    }
-}
-
-// ── 타임라인 행 ───────────────────────────────────────────────
-
-@Composable
-fun TimelineActivityRow(
-    record: ActivityRecord,
-    isLast: Boolean,
-    greenPrimary: Color,
-) {
-    // 아이콘 원 크기
-    val iconCircleSize = 32.dp
-
-    Row(modifier = Modifier.fillMaxWidth()) {
-
-        // ── 좌측: 아이콘 원 + 수직선 ─────────────────────────
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(iconCircleSize),
-        ) {
-            // 아이콘 원
-            Box(
-                modifier = Modifier
-                    .size(iconCircleSize)
-                    .clip(CircleShape)
-                    .background(
-                        if (record.actionIcon == "water") Color(0xFFE3F2FD)
-                        else Color(0xFFF0F0F0)
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = if (record.actionIcon == "water")
-                        Icons.Rounded.WaterDrop else Icons.Rounded.CameraAlt,
-                    contentDescription = null,
-                    tint = if (record.actionIcon == "water")
-                        Color(0xFF5BB8F5) else Color(0xFF9E9E9E),
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-
-            // 연결선 (마지막 제외)
-            if (!isLast) {
-                Box(
-                    modifier = Modifier
-                        .width(1.5.dp)
-                        .weight(1f)
-                        .background(Color(0xFFDDDDDD))
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // ── 우측: 썸네일 + 텍스트 ────────────────────────────
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .padding(bottom = if (isLast) 0.dp else 18.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            // 식물 썸네일
-            Box(
-                modifier = Modifier
-                    .size(70.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFDCEFE3)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = record.emoji, fontSize = 28.sp)
-                // TODO: 실제 이미지로 교체
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // 텍스트 정보
-            Column(modifier = Modifier.weight(1f)) {
-                // 식물명 + 점수 뱃지
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = record.plantName,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                    )
-                    if (record.scoreDelta != null) {
-                        val isPos = record.scoreDelta > 0
-                        val txColor = if (isPos) greenPrimary else Color(0xFFE53935)
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    if (isPos) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                                )
-                                .padding(horizontal = 7.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = if (isPos) Icons.Rounded.TrendingUp
-                                else Icons.Rounded.TrendingDown,
-                                contentDescription = null,
-                                tint = txColor,
-                                modifier = Modifier.size(11.dp),
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "${if (isPos) "+" else ""}${record.scoreDelta}점",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = txColor,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(3.dp))
-
-                // 날짜
-                Text(
-                    text = record.dateTime,
-                    fontSize = 11.sp,
-                    color = TextSecondary,
-                )
-
-                Spacer(modifier = Modifier.height(5.dp))
-
-                // 액션
-                Text(
-                    text = record.action,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // 메모
-                Text(
-                    text = record.memo,
-                    fontSize = 12.sp,
-                    color = TextSecondary,
-                )
-            }
         }
     }
 }

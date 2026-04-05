@@ -20,11 +20,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,7 +30,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.growing.ui.theme.*
 import com.project.growing.viewmodel.PlantViewModel
-import kotlin.math.abs
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.project.growing.R
 
 @Composable
 fun AiAnalysisScreen(
@@ -83,16 +83,40 @@ fun AiAnalysisScreen(
             label         = "content_slide",
         )
 
-        // ── 로딩 중 ───────────────────────────────────────────
+        // ── 로딩 중 ───────────────────────────────────────────────────
         if (analysisState.isLoading) {
             Box(
                 modifier         = Modifier.fillMaxSize().background(Color(0xFFF5F7F5)),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Color(0xFF43A967))
+
+                    // ── Lottie 애니메이션 ─────────────────────────────
+                    val composition by rememberLottieComposition(
+                        LottieCompositionSpec.RawRes(R.raw.loading)
+                    )
+                    val progress by animateLottieCompositionAsState(
+                        composition = composition,
+                        iterations  = LottieConstants.IterateForever,
+                    )
+                    LottieAnimation(
+                        composition = composition,
+                        progress    = { progress },
+                        modifier    = Modifier.size(160.dp),
+                    )
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("AI가 식물을 분석 중이에요...", fontSize = 14.sp, color = TextSecondary)
+                    Text(
+                        text     = "AI가 식물을 분석 중이에요...",
+                        fontSize = 14.sp,
+                        color    = TextSecondary,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text     = "잠시만 기다려주세요 🌿",
+                        fontSize = 12.sp,
+                        color    = TextSecondary.copy(alpha = 0.7f),
+                    )
                 }
             }
             return@GrowingTheme
