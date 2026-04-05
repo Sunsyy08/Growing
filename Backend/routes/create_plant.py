@@ -231,7 +231,7 @@ def get_score(user_id: int):
     cursor.execute(select_sql, (plant["id"],))
     score = cursor.fetchall()
     result = []
-    for row in range(5):
+    for row in range(len(plant)):
         if score[row]['score'] >= 70:
             status = "좋음"
         elif score[row]['score'] >= 40:
