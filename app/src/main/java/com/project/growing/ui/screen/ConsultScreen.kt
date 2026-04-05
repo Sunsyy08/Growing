@@ -220,7 +220,12 @@ fun ConsultScreen(
                     ) { record ->
                         ConsultRecordCard(
                             record   = record,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp),
+                            modifier = Modifier
+                                .padding(horizontal = 20.dp, vertical = 5.dp)
+                                .clickable(                              // ← 추가
+                                    indication        = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                ) { onQuestionClick(record.id) },
                         )
                     }
                 }

@@ -20,4 +20,8 @@ sealed class Screen(val route: String) {
         fun createRoute(plantId: Int) = "ai_analysis/$plantId"
         const val ARG_PLANT_ID = "plantId"
     }
+    data object ConsultDetail : Screen("consult_detail/{recordId}") {
+        fun createRoute(recordId: String) = "consult_detail/$recordId"
+        const val ARG_RECORD_ID = "recordId"
+    }
 }
