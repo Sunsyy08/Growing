@@ -223,18 +223,20 @@ def get_score(user_id: int):
     cursor = conn.cursor()
     
     sql = """
-            select plant_kind, plant_name, id from create_plants where user_id =%s ORDER BY created_at DESC LIMIT 5
+            select plant_kind, plant_name, id, created_at from create_plants where user_id =%s ORDER BY created_at DESC LIMIT 5
         """
     cursor.execute(sql, (user_id,))
-    plant = cursor.fetchone()
-    select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 1"
+    plant = cursor.fetchall()
+    select_sql = "SELECT score FROM plant_state WHERE create_plant_id = %s ORDER BY created_at DESC LIMIT 5"
     cursor.execute(select_sql, (plant["id"],))
-    score = cursor.fetchone()
-    if score['score'] >= 70:
-        status = "좋음"
-    elif score['score'] >= 40:
-        status = "보통"
-    else:
-        status = "나쁨"
-    print(score['score'])
-    return {"점수":score['score'], "상태":status, "종류":plant['plant_kind'], "이름":plant["plant_name"]}
+    score = cursor.fetchall()
+    result = []
+    for row in range(5):
+        if score[row]['score'] >= 70:
+            status = "좋음"
+        elif score[row]['score'] >= 40:
+            status = "보통"
+        else:
+            status = "나쁨"
+        result.append({"점수":score[row]['score'], "상태":status, "종류":plant[row]['plant_kind'], "이름":plant[row]["plant_name"], "생성 날짜":plant[row]["created_at"]})
+    return result
