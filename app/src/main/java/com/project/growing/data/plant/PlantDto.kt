@@ -74,3 +74,13 @@ data class RecentScoreResponse(
     @SerializedName("종류") val kind   : String? = null,
     @SerializedName("이름") val name   : String? = null,
 )
+
+data class ProfileResponse(
+    val user_id                  : Int?    = null,
+    val name                     : String? = null,
+    val email                    : String? = null,
+    val plant_count              : Int?    = null,
+    val plant_last_created_at    : String? = null,
+    val question_count           : Int?    = null,
+    val question_last_created_at : String? = null,
+)

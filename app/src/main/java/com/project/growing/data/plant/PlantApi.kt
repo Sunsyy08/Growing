@@ -67,4 +67,9 @@ interface PlantApi {
     suspend fun getAllScore(
         @Query("user_id") userId: Int,
     ): Response<RecentScoreResponse>
+
+    @GET("profile")
+    suspend fun getProfile(
+        @Query("user_id") userId: Int,
+    ): Response<ProfileResponse>
 }

@@ -154,9 +154,16 @@ fun AppNavHost(
 
             // ── 마이 ──────────────────────────────────────────────
             composable(Screen.My.route) {
-                val authViewModel: AuthViewModel = viewModel()
+                val authViewModel  : AuthViewModel  = viewModel()
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val plantViewModel : PlantViewModel = viewModel(
+                    factory = ViewModelProvider.AndroidViewModelFactory.getInstance(
+                        context.applicationContext as android.app.Application
+                    )
+                )
                 MyPageScreen(
-                    onLogout = {
+                    plantViewModel = plantViewModel,  // ← 추가
+                    onLogout       = {
                         authViewModel.logout()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }

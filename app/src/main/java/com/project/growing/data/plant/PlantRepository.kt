@@ -256,6 +256,23 @@ class PlantRepository(private val context: Context) {
     fun getRecentImageUrl(imageUrl: String): String =
         "${RetrofitClient.BASE_URL}get_all_image?image_url=$imageUrl"
 
+    suspend fun getProfile(userId: Int): Result<ProfileResponse> {
+        return try {
+            val response = api.getProfile(userId)
+            android.util.Log.d("PlantRepo", "프로필 응답: ${response.code()} ${response.body()}")
+            if (response.isSuccessful) {
+                val body = response.body()
+                if (body != null) Result.Success(body)
+                else Result.Error("데이터가 없습니다.")
+            } else {
+                Result.Error(parseError(response.code()))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlantRepo", "프로필 예외: ${e.message}")
+            Result.Error(e.message ?: "네트워크 오류")
+        }
+    }
+
     private fun parseError(code: Int): String = when (code) {
         400  -> "입력 정보를 확인해주세요."
         401  -> "인증이 필요합니다."

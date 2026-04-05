@@ -22,9 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.growing.ui.component.BottomNavBar
 import com.project.growing.ui.component.BottomNavTab
 import com.project.growing.ui.theme.*
+import com.project.growing.viewmodel.PlantViewModel
 
 // ── 샘플 데이터 ──────────────────────────────────────────────
 
@@ -72,14 +75,24 @@ fun MyPageScreen(
     onPlantHistory: () -> Unit = {},
     onAppSetting: () -> Unit = {},
     onHelp: () -> Unit = {},
+    plantViewModel : PlantViewModel = viewModel(),
     onLogout: () -> Unit = {},
 ) {
+    val profileState by plantViewModel.profileState.collectAsStateWithLifecycle()
+
+    // ── 화면 진입 시 프로필 로드 ──────────────────────────────
+    LaunchedEffect(Unit) {
+        plantViewModel.loadProfile()
+    }
+
+    // ── 실제 데이터 → 기존 UI 변수에 매핑 ────────────────────
+    val userName      = profileState.profile?.name          ?: "사용자"
+    val userEmail     = profileState.profile?.email         ?: ""
+    val plantCount    = profileState.profile?.plant_count   ?: 0
+    val questionCount = profileState.profile?.question_count ?: 0
+
     GrowingTheme {
         val GreenPrimary = Color(0xFF43A967)
-        val userName = "김민수"
-        val userEmail = "minsu@example.com"
-        val plantCount = 4
-        val questionCount = 12
         val expertAnswerBadge = 3
 
         LazyColumn(

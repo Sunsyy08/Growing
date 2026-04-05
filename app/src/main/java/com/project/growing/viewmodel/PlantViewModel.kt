@@ -9,6 +9,7 @@ import com.project.growing.data.plant.GraphPointDto
 import com.project.growing.data.plant.PlantAnalysisResponse
 import com.project.growing.data.plant.PlantDetailResponse
 import com.project.growing.data.plant.PlantRepository
+import com.project.growing.data.plant.ProfileResponse
 import com.project.growing.util.Result
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -77,6 +78,13 @@ data class RecentRecordUiState(
     val errorMessage: String?            = null,
 )
 
+// ── 프로필 UI 상태 ────────────────────────────────────────────
+data class ProfileUiState(
+    val isLoading    : Boolean         = false,
+    val profile      : ProfileResponse? = null,
+    val errorMessage : String?         = null,
+)
+
 class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository      = PlantRepository(application.applicationContext)
@@ -102,6 +110,9 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _recentState = MutableStateFlow(RecentRecordUiState())
     val recentState: StateFlow<RecentRecordUiState> = _recentState.asStateFlow()
+
+    private val _profileState = MutableStateFlow(ProfileUiState())
+    val profileState: StateFlow<ProfileUiState> = _profileState.asStateFlow()
 
     // ══════════════════════════════════════════════════════════
     // 홈 화면 데이터 로드
@@ -373,6 +384,27 @@ class PlantViewModel(application: Application) : AndroidViewModel(application) {
                     plantName  = plantName,
                     plantKind  = plantKind,
                 )
+            }
+        }
+    }
+
+    fun loadProfile() {
+        viewModelScope.launch {
+            val userId = userPreferences.userId.first()?.toIntOrNull()
+                ?: return@launch
+
+            _profileState.update { it.copy(isLoading = true, errorMessage = null) }
+
+            when (val result = repository.getProfile(userId)) {
+                is Result.Success -> {
+                    android.util.Log.d("PlantVM", "프로필 로드 성공: ${result.data}")
+                    _profileState.update { it.copy(isLoading = false, profile = result.data) }
+                }
+                is Result.Error -> {
+                    android.util.Log.e("PlantVM", "프로필 로드 실패: ${result.message}")
+                    _profileState.update { it.copy(isLoading = false, errorMessage = result.message) }
+                }
+                is Result.Loading -> Unit
             }
         }
     }
